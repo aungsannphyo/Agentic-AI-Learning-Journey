@@ -172,6 +172,70 @@ class TestExperiment1ToolErrorRecovery:
         payload = json.loads(tool_outputs[0]["output"])
         assert payload["success"] is False
 
+    def test_hallucinated_tool_name_recovery(self) -> None:
+        """When the LLM calls an unknown/hallucinated tool (e.g. repo_browser.list_files),
+        ToolRegistry raises KeyError, ToolExecutor catches it as ToolExecution(success=False),
+        the error is returned to the LLM, and the LLM recovers with a valid tool."""
+        fake_llm = FakeLLMClient(
+            response="Done.",
+            response_sequence=[
+                # Step 1: Hallucinated tool name
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_bad_tool",
+                            name="repo_browser.list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # Step 2: Self-corrected to valid tool
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_good_tool",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # Step 3: Final answer
+                FakeResponse(output_text="Done.", output=[]),
+            ],
+        )
+
+        loop = _make_loop(fake_llm)
+        state = loop.run("Inspect repository files.")
+
+        assert state.status == AgentStatus.COMPLETED
+        assert state.final_response == "Done."
+        assert len(state.history) == 2
+
+        # Record 0: Unknown tool failure
+        r0 = state.history.records()[0]
+        assert r0.tool_name == "repo_browser.list_files"
+        assert r0.success is False
+        assert "Unknown tool" in (r0.error or "")
+
+        # Record 1: Valid tool success
+        r1 = state.history.records()[1]
+        assert r1.tool_name == "list_files"
+        assert r1.success is True
+
+        # Observation reached LLM in second iteration
+        second_conv = fake_llm.calls[1]["conversation"]
+        tool_outputs = [
+            m
+            for m in second_conv
+            if isinstance(m, dict) and m.get("type") == "function_call_output"
+        ]
+        assert len(tool_outputs) == 1
+        payload = json.loads(tool_outputs[0]["output"])
+        assert payload["success"] is False
+        assert "Unknown tool" in payload["error"]
+
 
 # ---------------------------------------------------------------------------
 # Experiment 2 — Path Traversal

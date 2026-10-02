@@ -34,7 +34,7 @@ class ToolExecutor:
                 ) * 1000,
             )
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             return ToolExecution(
                 tool_name=tool_name,
                 arguments=arguments,
