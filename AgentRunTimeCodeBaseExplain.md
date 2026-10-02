@@ -36,7 +36,7 @@ agent-runtime/
 ├── tests/
 │   ├── test_agent_loop.py           ← 🔄 Multi-iteration loop tests (Workspace-aware, 4 tests)
 │   ├── test_agent_state.py          ← 🆕 AgentState & status unit tests (4 tests)
-│   ├── test_error_recovery.py       ← 🆕 Day 5 Experiments (Error Recovery, Path Traversal, Huge Output, Smoke Test - 11 tests)
+│   ├── test_error_recovery.py       ← 🆕 Day 5 Experiments (Error Recovery, Path Traversal, Huge Output, Smoke Test - 13 tests)
 │   ├── test_file_tools.py           ← 🆕 Integration tests for Workspace file tools (4 tests)
 │   ├── test_llm_client.py           ← Fake LLM unit tests (2 tests)
 │   ├── test_openai_tools.py         ← 🔄 OpenAI tool conversion test (Workspace-aware, 1 test)
@@ -1354,7 +1354,7 @@ class ReadFileTool(Tool):
 
         if not file_path.exists():
             raise FileNotFoundError(
-                f"File does not exist: {path}"
+                f"File not found: {path}"
             )
 
         if not file_path.is_file():
@@ -1688,7 +1688,7 @@ Agent Runtime
 # PROGRESS
 
 ## Current
-Week 1 / Day 5
+Week 1 / Day 5 — Complete
 Date: 2026-10-02
 
 ## Done
@@ -1726,49 +1726,73 @@ Date: 2026-10-02
 - 19/19 tests passing at checkpoint
 
 ### Week 1 Day 5
-- ExecutionHistory
-- ExecutionRecord
-- Workspace abstraction
-- Workspace path traversal protection
-- ReadFileTool
-- SearchTextTool
+- ExecutionHistory & ExecutionRecord telemetry store
+- Workspace security boundary abstraction (path traversal protection)
+- ReadFileTool with UTF-8 support and context budget `max_bytes` limit
+- SearchTextTool with case-insensitive search and Cognitive Complexity ≤ 15 refactoring (`_search_file()` helper)
 - ListFilesTool updated to use Workspace
-- File-size limit
-- Tool errors represented as observations
-- AgentLoop updated to record execution history
-- AgentLoop depends on ToolCallingClient protocol instead of OpenAIClient
-- History JSON serialization
-- Workspace/file/history tests
+- Error as Observation architecture implemented (tool errors returned as observations)
+- AgentLoop updated to depend on `ToolCallingClient` protocol (ADR-0001 provider independence)
+- AgentLoop records tool execution history with execution timing (duration_ms)
+- Output shaping: explicit `{"success": true/false}` observations for LLM
+- ToolExecutor safe exception boundary (`# noqa: BLE001` intentional broad catch)
+- Separation of Concerns codified: LLM (Decide & Re-plan) vs ToolExecutor (Execute safely)
+- Infinite loop protection via `max_iterations` and `AgentStatus.MAX_ITERATIONS`
+- Iteration counter semantics clarified: "Completed tool-decision cycles count"
+- 5 Error recovery & runtime safety experiments:
+  - Exp 1A: Hallucinated tool name recovery (`repo_browser.list_files` → `list_files`)
+  - Exp 1B: Invalid file recovery (`read_file("missing.py")` → `FileNotFoundError` → `list_files`)
+  - Exp 2: Path traversal attack blocked (`../../secret.txt` → `PermissionError`)
+  - Exp 3: Huge file budget limit (`max_bytes` → `ValueError`)
+  - Exp 4: Realistic repo exploration smoke test (`list_files` → `read_file` → final answer)
+  - Exp 5: Max iterations infinite tool loop termination
+- `app/main.py` updated with AgentLoop, Workspace, 3 tools, and telemetry JSON print
+- Real API live run on Groq (`openai/gpt-oss-120b`) demonstrating live tool error self-correction
+- Full test suite expanded from 19 tests to 40 tests across 9 test files (100% passing)
+- Linter: 100% ruff clean
 
 ## Code State
 
 ```text
-app/
-├── agent/
-│   ├── __init__.py
-│   ├── history.py
-│   ├── loop.py
-│   ├── single_iteration.py
-│   └── state.py
-│
-├── llm/
-│   ├── __init__.py
-│   ├── client.py
-│   ├── fake_client.py
-│   ├── openai_client.py
-│   └── openai_tools.py
-│
-└── tools/
-    ├── __init__.py
-    ├── base.py
-    ├── call.py
-    ├── execution.py
-    ├── executor.py
-    ├── list_files.py
-    ├── read_file.py
-    ├── registry.py
-    ├── search_text.py
-    └── workspace.py
+agent-runtime/
+├── app/
+│   ├── main.py                  (AgentLoop + Workspace + 3 Tools + Telemetry)
+│   ├── agent/
+│   │   ├── __init__.py          (Exports AgentLoop, AgentState, ExecutionHistory, etc.)
+│   │   ├── history.py           (ExecutionRecord, ExecutionHistory)
+│   │   ├── loop.py              (AgentLoop, ToolCallingClient Protocol)
+│   │   ├── single_iteration.py  (Baseline single iteration loop)
+│   │   └── state.py             (AgentState, AgentStatus, history field)
+│   ├── llm/
+│   │   ├── __init__.py
+│   │   ├── client.py            (LLMClient ABC)
+│   │   ├── fake_client.py       (FakeLLMClient, FakeResponse, multi-step sequence)
+│   │   ├── openai_client.py     (OpenAIClient with Groq endpoint support)
+│   │   └── openai_tools.py      (to_openai_tool adapter)
+│   └── tools/
+│       ├── __init__.py
+│       ├── base.py              (Tool ABC)
+│       ├── call.py              (ToolCall dataclass)
+│       ├── execution.py         (ToolExecution dataclass)
+│       ├── executor.py          (ToolExecutor with timing & exception boundary)
+│       ├── list_files.py        (Workspace-aware ListFilesTool)
+│       ├── read_file.py         (Workspace-aware ReadFileTool with size limit)
+│       ├── registry.py          (ToolRegistry store)
+│       ├── search_text.py       (Workspace-aware SearchTextTool, complexity ≤ 15)
+│       └── workspace.py         (Workspace security boundary)
+└── tests/
+    ├── test_agent_loop.py       (4 tests — multi-iteration orchestration)
+    ├── test_agent_state.py      (4 tests — state transitions & defaults)
+    ├── test_error_recovery.py   (13 tests — error recovery & safety experiments)
+    ├── test_file_tools.py       (4 tests — workspace file tools integration)
+    ├── test_llm_client.py       (2 tests — fake LLM client)
+    ├── test_openai_tools.py     (1 test — tool schema conversion)
+    ├── test_single_iteration.py (2 tests — single iteration baseline)
+    ├── test_tools.py            (7 tests — tool registry & list_files)
+    └── test_workspace.py        (3 tests — path traversal & resolution)
+
+Total: 40/40 passed (100%)
+```
 ```
 
 ### 27. `docs/adr/0001-llm-provider-abstraction.md` — ADR-0001: Provider-Independent Interface
@@ -2638,9 +2662,9 @@ def test_search_text_returns_matches(
     ]
 ```
 
-### 37. `tests/test_error_recovery.py` — Day 5 Error Recovery & Security Experiments (11 tests) 🆕
+### 37. `tests/test_error_recovery.py` — Day 5 Error Recovery & Security Experiments (13 tests) 🆕
 
-**ဘာလုပ်သလဲ:** Agentic AI စနစ်၏ အဓိက experiment ၄ ခုဖြစ်သော Tool Error Recovery, Path Traversal Block, Huge Output Context Budgeting နှင့် Realistic Exploration Smoke Test တို့ကို စစ်ဆေးသော tests ၁၁ ခု ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** Agentic AI စနစ်၏ အဓိက experiment ၅ ခုဖြစ်သော Tool Error Recovery, Path Traversal Block, Huge Output Context Budgeting, Realistic Exploration Smoke Test နှင့် Max Iterations Protection တို့ကို စစ်ဆေးသော tests ၁၃ ခု ဖြစ်သည်။
 
 | Experiment Class | Test Function | အဓိက စစ်ဆေးချက် |
 |---|---|---|
@@ -2648,6 +2672,7 @@ def test_search_text_returns_matches(
 | | `test_failed_tool_recorded_in_history` | ကျရှုံးသော tool call ကို `history.records()[0].success is False` ဟု မှတ်တမ်းတင်ခြင်း |
 | | `test_error_observation_appended_to_conversation` | Error message သည် observation အနေဖြင့် LLM ဆီသို့ function_call_output ရောက်ရှိသွားခြင်း |
 | | `test_hallucinated_tool_name_recovery` | မရှိသော tool နာမည် (e.g. repo_browser.list_files) ခေါ်မိသော်လည်း error observation ရရှိပြီး valid tool သို့ self-correct လုပ်နိုင်ခြင်း |
+| | `test_invalid_file_recovery` | Tool name မှန်သော်လည်း argument/path မှားယွင်းခြင်း (`missing.py`) ကို recover လုပ်၍ `list_files` ဖြင့် ရှာဖွေနိုင်ခြင်း |
 | **Exp 2: Path Traversal** | `test_path_traversal_blocked_and_agent_survives` | `../../secret.txt` ခေါ်သော်လည်း agent process ရှင်သန်ပြီး COMPLETED ဖြစ်ခြင်း |
 | | `test_path_traversal_recorded_as_failure` | History တွင် `"escapes workspace"` error ဖြင့် failure အဖြစ် မှတ်တမ်းတင်ခြင်း |
 | | `test_path_traversal_error_forwarded_to_llm` | PermissionError ကို LLM ထံ observation အဖြစ် ပို့ဆောင်ပေးခြင်း |
@@ -2655,6 +2680,7 @@ def test_search_text_returns_matches(
 | | `test_oversized_file_error_forwarded_to_llm` | Context budget error observation အား LLM ထံ ပြန်ပို့ခြင်း |
 | **Exp 4: Realistic Exploration** | `test_realistic_exploration_sequence` | `list_files` → `read_file` → final answer အဆင့်ဆင့် exploration အောင်မြင်ခြင်း |
 | | `test_history_json_is_serialisable` | `state.history.to_json()` သည် valid JSON ထုတ်ပေးပြီး duration_ms ပါဝင်ခြင်း |
+| **Exp 5: Max Iterations Protection** | `test_max_iterations_stops_infinite_tool_loop` | Model က အဆုံးမရှိ loop ဖြစ်နေပါက max_iterations (e.g. 3) တွင် `MAX_ITERATIONS` status ဖြင့် safely ရပ်တန့်ခြင်း |
 
 ```python
 """
@@ -2894,6 +2920,56 @@ class TestExperiment1ToolErrorRecovery:
         payload = json.loads(tool_outputs[0]["output"])
         assert payload["success"] is False
         assert "Unknown tool" in payload["error"]
+
+    def test_invalid_file_recovery(self) -> None:
+        """When the LLM calls read_file with a missing/invalid file path,
+        ReadFileTool raises FileNotFoundError, ToolExecutor catches it as failure,
+        the error observation reaches the LLM, and the LLM recovers by listing files."""
+        fake_llm = FakeLLMClient(
+            response="Done.",
+            response_sequence=[
+                # Step 1: Correct tool, wrong input (missing file)
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_bad_file",
+                            name="read_file",
+                            arguments='{"path": "missing.py"}',
+                        )
+                    ],
+                ),
+                # Step 2: Self-corrected to list_files
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_list",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # Step 3: Final answer
+                FakeResponse(output_text="Done.", output=[]),
+            ],
+        )
+
+        loop = _make_loop(fake_llm)
+        state = loop.run("Read missing file and inspect workspace.")
+
+        assert state.status == AgentStatus.COMPLETED
+        assert state.final_response == "Done."
+        assert len(state.history) == 2
+
+        r0 = state.history.records()[0]
+        assert r0.tool_name == "read_file"
+        assert r0.success is False
+        assert "not found" in (r0.error or "").lower()
+
+        r1 = state.history.records()[1]
+        assert r1.tool_name == "list_files"
+        assert r1.success is True
 
 
 # ---------------------------------------------------------------------------
@@ -3201,7 +3277,113 @@ class TestExperiment4RealisticExploration:
         assert len(parsed) == 1
         assert parsed[0]["tool_name"] == "list_files"
         assert isinstance(parsed[0]["duration_ms"], float)
+
+
+# ---------------------------------------------------------------------------
+# Experiment — Max Iteration / Infinite Loop Protection
+#
+# Model is stuck in a loop calling list_files repeatedly without answering.
+# Runtime must enforce max_iterations limit and stop the loop safely.
+# ---------------------------------------------------------------------------
+
+
+class TestExperimentMaxIterationsProtection:
+    def test_max_iterations_stops_infinite_tool_loop(self) -> None:
+        fake_llm = FakeLLMClient(
+            response="Done.",
+            response_sequence=[
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_1",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_2",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_3",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # This response should never be reached
+                FakeResponse(
+                    output_text="Done.",
+                    output=[],
+                ),
+            ],
+        )
+
+        loop = _make_loop(fake_llm, max_iterations=3)
+        state = loop.run("Keep inspecting the repository.")
+
+        assert state.status == AgentStatus.MAX_ITERATIONS
+        assert state.final_response is None
+        assert state.iteration == 3
+        assert len(state.history) == 3
 ```
+
+---
+
+## 🔬 ERROR RECOVERY TAXONOMY & CONTEXT ENGINEERING
+
+### Recovery Failure Types (မတူညီသော Error အမျိုးအစား ၂ မျိုး)
+1. **Experiment 1A (Wrong Tool / Hallucinated Tool Name):**
+   - ဥပမာ: `repo_browser.list_files`
+   - Failure: `ToolRegistry.get()` မှ `KeyError` တက်သည်။
+   - Recovery: Tool name ကို registry ထဲရှိ valid tool နာမည်အဖြစ် ပြောင်းလဲခေါ်ဆိုသည်။
+2. **Experiment 1B (Correct Tool, Wrong Input / Invalid Path):**
+   - ဥပမာ: `read_file("missing.py")`
+   - Failure: `ReadFileTool.run()` မှ `FileNotFoundError` တက်သည်။
+   - Recovery: Path အမှားကို နားလည်ပြီး `list_files(".")` ဖြင့် directory ကို အရင်စူးစမ်းကာ မှန်ကန်သော ဖိုင်လမ်းကြောင်းကို ရှာဖွေသည်။
+
+### Context Engineering Preview
+> **အဓိက သဘောတရား:** `read_file` failure ဖြစ်ချိန်တွင် `AgentLoop` က "File မတွေ့ဘူး → `list_files` သုံးလိုက်" ဟု ဘယ်တော့မှ မဆုံးဖြတ်ပါ။ `AgentLoop` သည် `error → observation → conversation` သို့ သယ်ဆောင်ပေးရုံသာ လုပ်သည်။ ထို observation ကို ဖတ်ရှုပြီး **Re-plan လုပ်ကာ `list_files` ကို ရွေးချယ်သူမှာ LLM သာ ဖြစ်သည်**။
+> ထို့ကြောင့် *"Conversation ထဲတွင် မည်သည့် context နှင့် observation format မျိုး ထည့်သွင်းပေးထားလျှင် LLM က အမှားကို အကောင်းဆုံး recover လုပ်နိုင်မည်နည်း?"* ဆိုသည့် မေးခွန်းသည် **Context Engineering** ၏ အခြေခံအုတ်မြစ် ဖြစ်သည်။
+
+---
+
+## 🛑 RUNTIME SAFETY & LIFECYCLE REASONING
+
+### Key Conceptual Distinctions
+- **Tool Failure ≠ Agent Failure**: Tool တစ်ခု error တက်ခြင်းသည် Agent run ပျက်စီးခြင်း မဟုတ်ပါ။ အမှန်စင်စစ် LLM အတွက် observation အသစ်ရရှိခြင်း ဖြစ်သည်။
+- **Max Iteration ≠ Tool Failure**: Tool execution အားလုံးသည် `success=True` ဖြစ်နိုင်သော်လည်း (ဥပမာ `list_files` ကို အကြိမ်ကြိမ် အောင်မြင်စွာ run နေသော်လည်း) LLM က final answer မပေးပါက `max_iterations` guard ကြောင့် loop ရပ်တန့်သွားသည်။ ဤအခြေအနေတွင် agent status သည် `FAILED` မဟုတ်ဘဲ `MAX_ITERATIONS` ဖြစ်သည်။
+
+### AgentStatus Runtime Lifecycle
+
+```
+                 ┌────────────┐
+                 │   RUNNING  │
+                 └─────┬──────┘
+                       │
+             ┌─────────┼──────────┐
+             │         │          │
+             ▼         ▼          ▼
+        COMPLETED   MAX_ITER    FAILED
+```
+
+| Status | အဓိပ္ပာယ် | ဖြစ်ပေါ်သည့် အကြောင်းရင်း |
+|---|---|---|
+| `RUNNING` | Agent loop အလုပ်လုပ်နေဆဲ | Loop iteration မပြီးဆုံးသေးမီ default state |
+| `COMPLETED` | Agent အောင်မြင်စွာ ပြီးဆုံး | LLM က tool call မလုပ်တော့ဘဲ final answer text ပြန်ပေးချိန် |
+| `MAX_ITERATIONS` | Runtime safety limit ရောက်ရှိ | LLM က final answer မပေးဘဲ tool များကို အဆုံးမရှိ ခေါ်နေသဖြင့် `state.iteration >= max_iterations` ဖြင့် ရပ်တန့်ချိန် |
+| `FAILED` | Runtime-level unrecoverable failure | Tool အဆင့်မဟုတ်ဘဲ runtime အဆင့်တွင် unhandled critical exception ဖြစ်ပေါ်ချိန် |
 
 ---
 
@@ -3220,7 +3402,7 @@ class TestExperiment4RealisticExploration:
 
 ---
 
-## 📈 COMPLETE TEST SUITE VERIFICATION (38/38 PASSING)
+## 📈 COMPLETE TEST SUITE VERIFICATION (40/40 PASSING)
 
 ```
 ============================= test session starts =============================
@@ -3230,16 +3412,16 @@ configfile: pyproject.toml
 testpaths: tests
 
 tests/test_agent_loop.py ....                                            [ 10%]
-tests/test_agent_state.py ....                                           [ 21%]
-tests/test_error_recovery.py ...........                                  [ 50%]
-tests/test_file_tools.py ....                                            [ 60%]
-tests/test_llm_client.py ..                                              [ 65%]
-tests/test_openai_tools.py .                                             [ 68%]
-tests/test_single_iteration.py ..                                        [ 73%]
+tests/test_agent_state.py ....                                           [ 20%]
+tests/test_error_recovery.py .............                               [ 52%]
+tests/test_file_tools.py ....                                            [ 62%]
+tests/test_llm_client.py ..                                              [ 67%]
+tests/test_openai_tools.py .                                             [ 70%]
+tests/test_single_iteration.py ..                                        [ 75%]
 tests/test_tools.py .......                                              [ 92%]
 tests/test_workspace.py ...                                              [100%]
 
-============================== 38 passed in 1.76s =============================
+============================== 40 passed in 1.69s =============================
 ```
 
 ---
@@ -3261,4 +3443,4 @@ Real model (Groq `openai/gpt-oss-120b`) ဖြင့် live run စမ်းသ
 
 ---
 
-*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (37 Files, 37 Tests)*
+*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (37 Files, 40 Tests)*

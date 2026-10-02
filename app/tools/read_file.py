@@ -47,7 +47,7 @@ class ReadFileTool(Tool):
 
         if not file_path.exists():
             raise FileNotFoundError(
-                f"File does not exist: {path}"
+                f"File not found: {path}"
             )
 
         if not file_path.is_file():

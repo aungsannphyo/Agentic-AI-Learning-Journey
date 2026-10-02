@@ -236,6 +236,56 @@ class TestExperiment1ToolErrorRecovery:
         assert payload["success"] is False
         assert "Unknown tool" in payload["error"]
 
+    def test_invalid_file_recovery(self) -> None:
+        """When the LLM calls read_file with a missing/invalid file path,
+        ReadFileTool raises FileNotFoundError, ToolExecutor catches it as failure,
+        the error observation reaches the LLM, and the LLM recovers by listing files."""
+        fake_llm = FakeLLMClient(
+            response="Done.",
+            response_sequence=[
+                # Step 1: Correct tool, wrong input (missing file)
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_bad_file",
+                            name="read_file",
+                            arguments='{"path": "missing.py"}',
+                        )
+                    ],
+                ),
+                # Step 2: Self-corrected to list_files
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_list",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # Step 3: Final answer
+                FakeResponse(output_text="Done.", output=[]),
+            ],
+        )
+
+        loop = _make_loop(fake_llm)
+        state = loop.run("Read missing file and inspect workspace.")
+
+        assert state.status == AgentStatus.COMPLETED
+        assert state.final_response == "Done."
+        assert len(state.history) == 2
+
+        r0 = state.history.records()[0]
+        assert r0.tool_name == "read_file"
+        assert r0.success is False
+        assert "not found" in (r0.error or "").lower()
+
+        r1 = state.history.records()[1]
+        assert r1.tool_name == "list_files"
+        assert r1.success is True
+
 
 # ---------------------------------------------------------------------------
 # Experiment 2 — Path Traversal
@@ -542,3 +592,63 @@ class TestExperiment4RealisticExploration:
         assert len(parsed) == 1
         assert parsed[0]["tool_name"] == "list_files"
         assert isinstance(parsed[0]["duration_ms"], float)
+
+
+# ---------------------------------------------------------------------------
+# Experiment — Max Iteration / Infinite Loop Protection
+#
+# Model is stuck in a loop calling list_files repeatedly without answering.
+# Runtime must enforce max_iterations limit and stop the loop safely.
+# ---------------------------------------------------------------------------
+
+
+class TestExperimentMaxIterationsProtection:
+    def test_max_iterations_stops_infinite_tool_loop(self) -> None:
+        fake_llm = FakeLLMClient(
+            response="Done.",
+            response_sequence=[
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_1",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_2",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                FakeResponse(
+                    output_text="",
+                    output=[
+                        _fc(
+                            call_id="call_3",
+                            name="list_files",
+                            arguments='{"path": "."}',
+                        )
+                    ],
+                ),
+                # This response should never be reached
+                FakeResponse(
+                    output_text="Done.",
+                    output=[],
+                ),
+            ],
+        )
+
+        loop = _make_loop(fake_llm, max_iterations=3)
+        state = loop.run("Keep inspecting the repository.")
+
+        assert state.status == AgentStatus.MAX_ITERATIONS
+        assert state.final_response is None
+        assert state.iteration == 3
+        assert len(state.history) == 3
