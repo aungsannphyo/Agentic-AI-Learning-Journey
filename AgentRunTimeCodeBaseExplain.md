@@ -3,7 +3,7 @@
 
 ---
 
-## 🗂️ Complete Project Structure (Day 5 Updated)
+## 🗂️ Complete Project Structure (Week 2 Day 2 Updated)
 
 ```
 agent-runtime/
@@ -11,94 +11,126 @@ agent-runtime/
 │   ├── __init__.py                  ← Package marker
 │   ├── main.py                      ← 🔄 Entry point (AgentLoop + Workspace + 3 Tools + History JSON)
 │   ├── agent/
-│   │   ├── __init__.py              ← 🔄 Agent module exports (AgentLoop, AgentState, ExecutionHistory, etc.)
-│   │   ├── history.py               ← 🆕 Telemetry & Execution audit log (ExecutionRecord, ExecutionHistory)
-│   │   ├── loop.py                  ← 🔄 Multi-iteration Orchestrator (ToolCallingClient Protocol, Error as Observation)
+│   │   ├── __init__.py              ← 🔄 Agent module exports (AgentLoop, AgentState, Decision, StructuredOutput, ValidationErrors)
+│   │   ├── decision.py              ← 🆕 Machine-verifiable Decision contract (DecisionAction, Decision Pydantic model)
+│   │   ├── decision_schema.py       ← 🆕 JSON Schema generator for Decision (decision_json_schema)
+│   │   ├── history.py               ← Telemetry & Execution audit log (ExecutionRecord, ExecutionHistory)
+│   │   ├── loop.py                  ← Multi-iteration Orchestrator (ToolCallingClient Protocol, Error as Observation)
 │   │   ├── single_iteration.py      ← Day 3 Single iteration loop (foundation)
-│   │   └── state.py                 ← 🔄 Agent state machine (AgentState, AgentStatus, history tracking)
+│   │   ├── state.py                 ← Agent state machine (AgentState, AgentStatus, history tracking)
+│   │   ├── structured_output.py     ← 🆕 Structured output strategies (parse_prompt_json, validate_structured_payload)
+│   │   └── validation_errors.py     ← 🆕 Pydantic ValidationError formatter for LLM observations
 │   ├── llm/
 │   │   ├── __init__.py              ← LLM module exports
 │   │   ├── client.py                ← Abstract base interface (LLMClient)
-│   │   ├── fake_client.py           ← 🔄 Deterministic test LLM (respond_with_tools, response_sequence)
-│   │   ├── openai_client.py         ← 🔄 Real OpenAI/Groq implementation (respond_with_tools, function calling)
+│   │   ├── fake_client.py           ← Deterministic test LLM (respond_with_tools, response_sequence)
+│   │   ├── openai_client.py         ← Real OpenAI/Groq implementation (respond_with_tools, function calling)
 │   │   └── openai_tools.py          ← Tool to OpenAI schema adapter (to_openai_tool)
 │   └── tools/
-│       ├── __init__.py              ← 🔄 Tools module exports (All 3 tools, Workspace, Executor, Registry)
+│       ├── __init__.py              ← 🔄 Tools module exports (All 3 tools, Workspace, Executor, Registry, Schemas)
+│       ├── argument_registry.py     ← 🆕 Tool Argument Registry (maps tool_name → Pydantic ToolArgs schema)
 │       ├── base.py                  ← Abstract Tool base class (name, description, schema, run)
 │       ├── call.py                  ← ToolCall data model
 │       ├── execution.py             ← ToolExecution data model (with duration_ms and success property)
 │       ├── executor.py              ← Tool runner (execution timing & exception boundary)
-│       ├── list_files.py            ← 🔄 Workspace-aware directory listing tool
-│       ├── read_file.py             ← 🆕 Workspace-aware UTF-8 file reader with max_bytes limit
+│       ├── list_files.py            ← Workspace-aware directory listing tool
+│       ├── read_file.py             ← Workspace-aware UTF-8 file reader with max_bytes limit
 │       ├── registry.py              ← Tool lookup registry (named registry with validation)
-│       ├── search_text.py           ← 🆕 Text search tool (case-insensitive, Cognitive Complexity <= 15)
-│       └── workspace.py             ← 🆕 Security boundary (path traversal defense)
+│       ├── schemas.py               ← 🆕 Pydantic argument schemas (ToolArgs, ListFilesArgs, ReadFileArgs, SearchTextArgs)
+│       ├── search_text.py           ← Text search tool (case-insensitive, Cognitive Complexity <= 15)
+│       └── workspace.py             ← Security boundary (path traversal defense)
 ├── tests/
-│   ├── test_agent_loop.py           ← 🔄 Multi-iteration loop tests (Workspace-aware, 4 tests)
-│   ├── test_agent_state.py          ← 🆕 AgentState & status unit tests (4 tests)
-│   ├── test_error_recovery.py       ← 🆕 Day 5 Experiments (Error Recovery, Path Traversal, Huge Output, Smoke Test - 13 tests)
-│   ├── test_file_tools.py           ← 🆕 Integration tests for Workspace file tools (4 tests)
+│   ├── test_agent_loop.py           ← Multi-iteration loop tests (Workspace-aware, 4 tests)
+│   ├── test_agent_state.py          ← AgentState & status unit tests (4 tests)
+│   ├── test_decision.py             ← 🆕 Decision schema & validation tests (9 tests)
+│   ├── test_error_recovery.py       ← Day 5 Experiments (Error Recovery, Path Traversal, Huge Output, Smoke Test - 13 tests)
+│   ├── test_file_tools.py           ← Integration tests for Workspace file tools (4 tests)
 │   ├── test_llm_client.py           ← Fake LLM unit tests (2 tests)
-│   ├── test_openai_tools.py         ← 🔄 OpenAI tool conversion test (Workspace-aware, 1 test)
-│   ├── test_single_iteration.py     ← 🔄 Single iteration loop tests (Workspace-aware, 2 tests)
-│   ├── test_tools.py                ← 🔄 Tool & Registry unit tests (Workspace-aware, 7 tests)
-│   └── test_workspace.py            ← 🆕 Workspace path resolution & security tests (3 tests)
+│   ├── test_openai_tools.py         ← OpenAI tool conversion test (Workspace-aware, 1 test)
+│   ├── test_single_iteration.py     ← Single iteration loop tests (Workspace-aware, 2 tests)
+│   ├── test_structured_output.py    ← 🆕 Structured output parsing & validation tests (6 tests)
+│   ├── test_tools.py                ← Tool & Registry unit tests (Workspace-aware, 7 tests)
+│   ├── test_tools_schemas.py        ← 🆕 Pydantic tool argument schema validation tests (11 tests)
+│   ├── test_validation_errors.py    ← 🆕 Structured validation error observation tests (1 test)
+│   └── test_workspace.py            ← Workspace path resolution & security tests (3 tests)
 ├── docs/
 │   └── adr/
 │       └── 0001-llm-provider-abstraction.md ← Architectural Decision Record (Provider Independence)
 ├── conftest.py                      ← Pytest path configuration
 ├── pyproject.toml                   ← Build & dependencies (Hatchling, OpenAI, Pydantic, Pytest, Ruff)
 ├── .env.example                     ← Environment variable template
-├── .gitignore                       ← 🔄 Git ignore rules (includes notes/journey docs)
+├── .gitignore                       ← Git ignore rules (includes notes/journey docs)
 ├── README.md                        ← Project overview & design goals
 └── PROGRESS.md                      ← Day-by-day learning milestones log
 ```
 
 ---
 
-## 🧠 Architecture & Mental Model (Day 5 Multi-Turn Loop)
+## 🧠 Architecture & Mental Model (Week 2 Multi-Layer Boundary)
 
 ```
-                     ┌──────────────────┐
-                     │   User Prompt    │
-                     └────────┬─────────┘
-                              │
-                              ▼
-                       ┌─────────────┐
-                       │  AgentLoop  │ ◄──────────────────────────────┐
-                       └──────┬──────┘                                │
-                              │                                       │
-            ┌─────────────────┴─────────────────┐                     │
-            ▼                                   ▼                     │
-   ToolCallingClient                       ToolExecutor               │
-      (Protocol)                                │                     │
-            │                             ┌─────┴──────┐              │
-    LLM API / Fake                        │  Registry  │              │
-            │                             └─────┬──────┘              │
-     ToolCall requests                          │                     │
-            │                     ┌─────────────┼─────────────┐       │
-            │                     ▼             ▼             ▼       │
-            │                list_files     read_file    search_text  │
-            │                     └─────────────┬─────────────┘       │
-            │                                   ▼                     │
-            │                               Workspace                 │
-            │                          (Security Boundary)            │
-            │                                   │                     │
-            │                             ToolExecution               │
-            │                            (success/error)              │
-            │                                   │                     │
-            │                           ExecutionHistory              │
-            │                             (Telemetry)                 │
-            │                                   │                     │
-            └───────────► New Observation ──────┴─────────────────────┘
-                          (appended to conversation history for next turn)
+                             ┌──────────────────┐
+                             │   User Prompt    │
+                             └────────┬─────────┘
+                                      │
+                                      ▼
+                               ┌─────────────┐
+                               │  AgentLoop  │ ◄─────────────────────────────────────────┐
+                               └──────┬──────┘                                           │
+                                      │                                                  │
+             ┌────────────────────────┴────────────────────────┐                         │
+             ▼                                                 ▼                         │
+    ToolCallingClient                                  LLM Structured Output             │
+       (Protocol)                                        (Untrusted Boundary)            │
+             │                                                 │                         │
+     LLM API / Fake                                            ▼                         │
+             │                                  ┌─────────────────────────────┐          │
+             │                                  │  Layer 1: Intent Validation │          │
+             │                                  │  (Decision: tool vs answer) │          │
+             │                                  └──────────────┬──────────────┘          │
+             │                                                 │                         │
+             ▼                                                 ▼                         │
+       ToolCall request ──────────────────────────────► ┌─────────────────────────────┐  │
+                                                        │ Layer 2: Argument Validation│  │
+                                                        │ (ToolArgs via SchemaRegistry│  │
+                                                        └──────────────┬──────────────┘  │
+                                                                       │                 │
+                                               ┌───────────────────────┴───────────────┐ │
+                                               │ Invalid                               │ │ Valid
+                                               ▼                                       ▼ │
+                                    ┌───────────────────────┐                 ┌──────────────────┐
+                                    │ format_validation_err │                 │ Layer 3: Security│
+                                    │ (compact observation) │                 │ (Workspace path) │
+                                    └──────────┬────────────┘                 └────────┬─────────┘
+                                               │                                       │
+                                               │                              ┌────────┴─────────┐
+                                               │                              │ Layer 4: Executor│
+                                               │                              │ (Timing & try/ex)│
+                                               │                              └────────┬─────────┘
+                                               │                                       │
+                                               │                                       ▼
+                                               │                                 Concrete Tool
+                                               │                                 (list/read/search)
+                                               │                                       │
+                                               │                              ┌────────┴─────────┐
+                                               │                              │ ExecutionHistory │
+                                               │                              │ (Telemetry JSON) │
+                                               │                              └────────┬─────────┘
+                                               │                                       │
+                                               └────────► Structured Observation ◄─────┘
+                                                          (appended to conversation)
 ```
 
-### Core Concepts in Agentic Software
+### Core Concepts in Agentic Software (Week 1 & Week 2)
 1. **AgentLoop is Orchestration, NOT Intelligence**: LLM က decision ချတယ်၊ Tool က action လုပ်တယ်၊ `Workspace` က security ထိန်းတယ်၊ `ToolExecutor` က execution time နဲ့ error ကိုဖမ်းတယ်၊ `AgentState` က state သိမ်းတယ်၊ `AgentLoop` က အားလုံးကို coordinate လုပ်ပေးတာသာ ဖြစ်တယ်။
-2. **Error as Observation**: Normal software မှာ error ဖြစ်ရင် crash/exception တက်တယ်။ Agentic software မှာ tool error ဟာ observation အသစ်တစ်ခုဖြစ်ပြီး LLM ဆီ `{"success": false, "error": "..."}` အနေနဲ့ ပြန်ပို့ပေးရမယ်။ ဒါမှ LLM က self-heal / re-plan လုပ်နိုင်မယ်။
-3. **Workspace Security Boundary**: Path traversal attacks (`../../secret.txt`) တွေကို tool တိုင်းမှာ duplicate စစ်မယ့်အစား `Workspace` class တစ်ခုတည်းမှာ centralized boundary ထားရှိပြီး resolve လုပ်တယ်။
-4. **Context Budget Foundation**: `read_file` တွင် `max_bytes` limit ထားခြင်း၊ `search_text` တွင် `max_results` limit ထားခြင်းတို့သည် LLM context window မပြည့်လျှံစေရန် Week 9 context budget အတွက် အခြေခံဖြစ်တယ်။
+2. **LLM Output as an Untrusted Boundary**: LLM မှ ထွက်လာသော text သို့မဟုတ် JSON သည် အမြဲ unverified input ဖြစ်သည်။ ထို့ကြောင့် machine-verifiable `Decision` contract ဖြင့် wrap လုပ်ပြီး Pydantic validation boundary ဖြတ်ရသည်။
+3. **Four-Layer Defense in Depth**:
+   - **Layer 1: Agent Intent Validation (`Decision`)**: LLM သည် `tool_call` သို့မဟုတ် `final_answer` တစ်ခုခုကိုသာ ပြုလုပ်ရမည် (နှစ်ခုစလုံးပြိုင်တူမရ၊ အပို fields `extra="forbid"` မရ)။
+   - **Layer 2: Tool Argument Validation (`ToolArgs` + `ToolArgumentRegistry`)**: Tool argument တိုင်းကို Pydantic strictly စစ်ဆေးသည် (type checking, string whitespace stripping, non-empty validation, positive bounds)။
+   - **Layer 3: Security & Authorization Boundary (`Workspace`)**: Argument မှန်သော်လည်း workspace ပြင်ပသို့ path traversal (`../../secret.txt`) ကျူးလွန်ခြင်းကို တားဆီးသည်။
+   - **Layer 4: Execution & Exception Boundary (`ToolExecutor`)**: OS-level သို့မဟုတ် runtime exceptions များကို catch လုပ်ပြီး `ToolExecution(success=False)` အဖြစ် safe wrapping လုပ်သည်။
+4. **Structured Validation Error Observation**: Pydantic validation error တက်ပါက python traceback အကြီးကြီး LLM ဆီ မပို့ဘဲ `format_validation_error` ဖြင့် compact machine-readable observation (`field`, `message`, `type`) အဖြစ် ပြောင်းလဲပေးပို့သည်။ LLM သည် မည်သည့် argument မှားယွင်းသွားသည်ကို တိကျစွာသိရှိပြီး self-heal လုပ်နိုင်သည်။
+5. **Context Budget Foundation**: `read_file` တွင် `max_bytes` limit ထားခြင်း၊ `search_text` တွင် `max_results` limit ထားခြင်းတို့သည် LLM context window မပြည့်လျှံစေရန် Week 9 context budget အတွက် အခြေခံဖြစ်တယ်။
 
 ### 🏛️ Separation of Concerns in Agent Runtime (တာဝန်ခွဲဝေမှုစည်းမျဉ်း)
 
@@ -106,11 +138,40 @@ agent-runtime/
 |---|---|---|
 | **LLM** | **Decide** — မည်သည့် tool ကို မည်သည့် arguments ဖြင့် ခေါ်မည်ကို ဆုံးဖြတ်ခြင်း၊ Error observation ရရှိပါက Re-plan လုပ်ခြင်း | Execution ကိုယ်တိုင်လုပ်ခြင်း မရှိ |
 | **AgentLoop** | **Coordinate** — LLM response ရယူခြင်း၊ tools များသို့ dispatch လုပ်ခြင်း၊ history သိမ်းခြင်း၊ iteration limit စောင့်ကြည့်ခြင်း | Intelligence မပါဝင်၊ Re-planning မလုပ် |
-| **ToolExecutor** | **Execute safely** — Tool registry မှ lookup လုပ်ခြင်း၊ run ခြင်း၊ execution time တိုင်းတာခြင်း၊ error အားလုံးကို catch လုပ်ခြင်း | Re-plan မလုပ်ပါ! Error တက်ပါက `ToolExecution(success=False)` ပြန်ပေးရုံသာ |
-| **Tool** | **Perform operation** — Concrete OS/File logic (ဖိုင်ဖတ်ခြင်း၊ ရှာဖွေခြင်း) ကို လုပ်ဆောင်ခြင်း | Security စစ်ဆေးမှုများကို tool တိုင်းတွင် duplicate မလုပ်ရ |
+| **Decision & ToolArgs** | **Validate Contract** — Untrusted LLM output ကို machine-verifiable schema အရ type, bounds, fields စစ်ဆေးခြင်း | File system စစ်ဆေးခြင်း သို့မဟုတ် OS logic မပါဝင်ရ |
+| **ToolArgumentRegistry** | **Schema Lookup** — Tool name အလိုက် သက်ဆိုင်ရာ Pydantic argument model နှင့် ချိတ်ဆက် validate လုပ်ပေးခြင်း | Execution logic မပါဝင်ရ |
+| **ToolExecutor** | **Execute safely** — Tool lookup လုပ်ခြင်း၊ run ခြင်း၊ timing တိုင်းတာခြင်း၊ error catch လုပ်ခြင်း | Re-plan မလုပ်ပါ! Error တက်ပါက `ToolExecution(success=False)` ပြန်ပေးရုံသာ |
 | **Workspace** | **Enforce security** — Centralized path resolution နှင့် Path Traversal (`../../`) တားဆီးခြင်း | File parsing / searching logic မပါဝင်ရ |
+| **Tool** | **Perform operation** — Concrete OS/File logic (ဖိုင်ဖတ်ခြင်း၊ ရှာဖွေခြင်း) ကို လုပ်ဆောင်ခြင်း | Security စစ်ဆေးမှုများကို tool တိုင်းတွင် duplicate မလုပ်ရ |
 
-> **အရေးကြီးသော မှတ်ချက်:** `ToolExecutor` သည် re-plan မလုပ်ပါ။ ToolExecutor ၏ တာဝန်သည် `execute → result / error` သာ ဖြစ်သည်။ Re-planning ကို LLM ကသာ ဦးဆောင်လုပ်ဆောင်သည်။
+### ⚖️ Comparison of Three Structured-Output Strategies
+
+| Strategy | Implementation in Repo | Pros (အားသာချက်) | Cons (အားနည်းချက်) | Best Use Case |
+|---|---|---|---|---|
+| **1. Prompt-based JSON** | `parse_prompt_json(raw_output)` | Provider အားလုံးတွင် သုံးနိုင်သည်၊ Custom setup မလိုပါ | LLM က JSON syntax error ဖြစ်နိုင်သည်၊ Schema အတိအကျမလိုက်နာနိုင်ပါ | Fallback strategy သို့မဟုတ် basic models များအတွက် |
+| **2. Constrained Decoding** | `validate_structured_payload(payload)` | Model generating လုပ်ချိန်မှာပင် Grammar / JSON schema အတိုင်း constrained လုပ်ထားသဖြင့် 100% valid JSON ရရှိသည် | Provider-specific ဖြစ်သည် (e.g. OpenAI JSON Schema mode / Outlines / Guidance) | High-reliability production systems |
+| **3. Tool-Call as Schema** | `to_openai_tool()` + native function calling | Established API standard ဖြစ်သည်၊ Provider အများစု natively support လုပ်သည် | Tool calling API overhead ရှိသည်၊ Decision intent နှင့် ရောထွေးနိုင်သည် | Multi-turn agent loops with function execution |
+
+### 🛡️ Schema Validity vs. Semantic Correctness vs. Security Boundary
+
+```
+[ Raw LLM Output ]
+       │
+       ▼  1. Syntax Validity       (Is it valid JSON?)
+       │
+       ▼  2. Schema Validity       (Does it conform to Decision and ToolArgs types?)
+       │
+       ▼  3. Semantic Correctness  (Does this file exist? Is query logical?)
+       │
+       ▼  4. Security Boundary     (Does path escape the Workspace sandbox?)
+       │
+[ Safe Tool Execution ]
+```
+
+> **အရေးကြီးသော ခွဲခြားမှု:**
+> - Schema validity (`ReadFileArgs(path="abc.txt", max_bytes=100)`) အောင်မြင်ရုံဖြင့် ဖိုင်ရှိသည် သို့မဟုတ် လုံခြုံသည်ဟု မဆိုနိုင်ပါ။
+> - Schema validation ၏ တာဝန်မှာ **data types, bounds, unexpected fields** များကို စစ်ဆေးရန်သာ ဖြစ်သည်။
+> - Path traversal (`path="../../secret.txt"`) သည် Schema အရ valid string ဖြစ်သော်လည်း **Workspace security boundary** ကသာ ပိတ်ပင်တားဆီးရမည်ဖြစ်သည်။ တာဝန်များကို ရှင်းလင်းစွာ ခွဲခြားထားသည်။
 
 ### ⏱️ Iteration Counter — "Completed Tool-Decision Cycles Count"
 
@@ -226,34 +287,292 @@ if __name__ == "__main__":
 
 ### 2. `app/agent/__init__.py` — Agent Module Exports 🔄
 
-**ဘာလုပ်သလဲ:** `app.agent` package မှ အဓိက classes နှင့် functions များကို သန့်ရှင်းစွာ export လုပ်ပေးသော file ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** `app.agent` package မှ အဓိက classes, models နှင့် functions များကို သန့်ရှင်းစွာ export လုပ်ပေးသော file ဖြစ်သည်။ Week 2 တွင် Decision, Structured Output, Validation Errors export များ တိုးချဲ့ထားသည်။
 
 | Exported Symbol | Type | တာဝန် |
 |---|---|---|
 | `AgentLoop` | Class | Multi-turn agent orchestrator loop |
 | `AgentState` | Dataclass | Loop state machine (status, iteration, conversation, history) |
 | `AgentStatus` | Enum | Loop states (`RUNNING`, `COMPLETED`, `MAX_ITERATIONS`, `FAILED`) |
+| `Decision` | Pydantic Model | 🆕 Machine-verifiable Agent Decision contract |
+| `DecisionAction` | Enum | 🆕 Action types (`tool_call`, `final_answer`) |
+| `decision_json_schema` | Function | 🆕 Generates JSON schema for Decision model |
 | `ExecutionHistory` | Class | Tool execution audit log & telemetry store |
 | `ExecutionRecord` | Dataclass | Single tool execution snapshot record |
+| `format_validation_error` | Function | 🆕 Converts Pydantic ValidationError to observation dict |
+| `parse_prompt_json` | Function | 🆕 Parses raw LLM JSON text into Decision |
 | `run_single_iteration` | Function | Day 3 single iteration helper |
+| `StructuredOutputError` | Exception | 🆕 Raised when output parsing or validation fails |
+| `validate_structured_payload` | Function | 🆕 Validates provider structured output dictionary |
 
 ```python
+from .decision import Decision, DecisionAction
+from .decision_schema import decision_json_schema
 from .history import ExecutionHistory, ExecutionRecord
 from .loop import AgentLoop
 from .single_iteration import run_single_iteration
 from .state import AgentState, AgentStatus
+from .structured_output import (
+    StructuredOutputError,
+    parse_prompt_json,
+    validate_structured_payload,
+)
+from .validation_errors import format_validation_error
 
 __all__ = [
     "AgentLoop",
     "AgentState",
     "AgentStatus",
+    "Decision",
+    "DecisionAction",
     "ExecutionHistory",
     "ExecutionRecord",
+    "StructuredOutputError",
+    "decision_json_schema",
+    "format_validation_error",
+    "parse_prompt_json",
     "run_single_iteration",
+    "validate_structured_payload",
 ]
 ```
 
-### 3. `app/agent/state.py` — Agent State Machine 🔄
+### 3. `app/agent/decision.py` — Machine-Verifiable Decision Schema 🆕
+
+**ဘာလုပ်သလဲ:** LLM ထံမှ ရရှိလာသော ဆုံးဖြတ်ချက် (Decision) ကို Machine-verifiable contract အဖြစ် သတ်မှတ်ပေးသော Pydantic model ဖြစ်သည်။ LLM သည် လုပ်ဆောင်ချက် ၂ မျိုးထဲမှ တစ်ခုတည်းကိုသာ ရွေးချယ်ခွင့်ရှိသည်:
+1. `tool_call`: Tool ခေါ်ဆိုခြင်း (`tool_name` နှင့် `arguments` မဖြစ်မနေပါရမည်၊ `final_answer` လုံးဝမပါရ)
+2. `final_answer`: အဖြေထုတ်ပေးခြင်း (`final_answer` မဖြစ်မနေပါရမည်၊ `tool_name` နှင့် `arguments` လုံးဝမပါရ)
+ထို့အပြင် `model_config = ConfigDict(extra="forbid")` ထားရှိသဖြင့် LLM က hallucinate ဖြစ်ပြီး ထည့်ပေးလိုက်သော မလိုအပ်သည့် extra fields (ဥပမာ `confidence: 0.99`) များကို တင်းကြပ်စွာ ငြင်းပယ်သည်။
+
+| Class / Method | Type | တာဝန် |
+|---|---|---|
+| `DecisionAction` | Enum (`str, Enum`) | ဆုံးဖြတ်ချက် အမျိုးအစားများ: `TOOL_CALL = "tool_call"`, `FINAL_ANSWER = "final_answer"` |
+| `Decision` | Pydantic `BaseModel` | Strict Decision contract (`extra="forbid"`, `action`, `tool_name`, `arguments`, `final_answer`) |
+| `Decision.validate_action_payload()` | `@model_validator(mode="after")` | `tool_call` တွင် `tool_name` နှင့် `arguments` ပါရမည်၊ `final_answer` မပါရ။ `final_answer` တွင် `final_answer` ပါရမည်၊ `tool_name`/`arguments` မပါရကြောင်း mutual exclusivity စစ်ဆေးခြင်း |
+
+```python
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+
+class DecisionAction(str, Enum):
+    TOOL_CALL = "tool_call"
+    FINAL_ANSWER = "final_answer"
+
+
+class Decision(BaseModel):
+    """
+    Machine-verifiable decision produced by the LLM.
+
+    A Decision represents exactly one of two agent actions:
+
+    1. tool_call
+    2. final_answer
+
+    The model is intentionally strict because this object becomes
+    a trusted boundary between untrusted LLM output and the runtime.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: DecisionAction
+
+    tool_name: str | None = None
+    arguments: dict[str, Any] | None = None
+    final_answer: str | None = None
+
+    @model_validator(mode="after")
+    def validate_action_payload(self) -> "Decision":
+        if self.action == DecisionAction.TOOL_CALL:
+            if not self.tool_name:
+                raise ValueError(
+                    "tool_call decision requires tool_name"
+                )
+
+            if self.arguments is None:
+                raise ValueError(
+                    "tool_call decision requires arguments"
+                )
+
+            if self.final_answer is not None:
+                raise ValueError(
+                    "tool_call decision cannot contain final_answer"
+                )
+
+        if self.action == DecisionAction.FINAL_ANSWER:
+            if not self.final_answer:
+                raise ValueError(
+                    "final_answer decision requires final_answer"
+                )
+
+            if self.tool_name is not None:
+                raise ValueError(
+                    "final_answer decision cannot contain tool_name"
+                )
+
+            if self.arguments is not None:
+                raise ValueError(
+                    "final_answer decision cannot contain arguments"
+                )
+
+        return self
+```
+
+### 4. `app/agent/decision_schema.py` — Decision JSON Schema Generator 🆕
+
+**ဘာလုပ်သလဲ:** `Decision` Pydantic model မှ JSON Schema specification ကို auto-generate လုပ်ပေးသော helper function ဖြစ်သည်။ ဤ schema ကို LLM system prompt ထဲ ထည့်သွင်းရန် သို့မဟုတ် OpenAI structured outputs (`response_format={"type": "json_schema", ...}`) တွင် ပို့ရန် သုံးသည်။
+
+| Function | တာဝန် |
+|---|---|
+| `decision_json_schema() -> dict[str, Any]` | `Decision.model_json_schema()` ကို ခေါ်ယူပြီး JSON schema dictionary ပြန်ပေးသည်။ |
+
+```python
+from typing import Any
+
+from .decision import Decision
+
+
+def decision_json_schema() -> dict[str, Any]:
+    """
+    Return the JSON Schema exposed to an LLM provider
+    or used by tests/documentation.
+    """
+
+    return Decision.model_json_schema()
+```
+
+### 5. `app/agent/structured_output.py` — Structured Output Parsing & Validation 🆕
+
+**ဘာလုပ်သလဲ:** LLM မှ ရရှိလာသော output ကို `Decision` object အဖြစ် parse လုပ်ခြင်းနှင့် validation ပြုလုပ်ခြင်းဆိုင်ရာ runtime functions များနှင့် protocol ဖြစ်သည်။ Prompt-based JSON decoding နှင့် Provider-side constrained decoding နှစ်မျိုးစလုံးကို independent validation boundary ဖြင့် ကာကွယ်ပေးထားသည်။
+
+| Component | Type | တာဝန် |
+|---|---|---|
+| `StructuredOutputError` | Exception | Structured output parsing သို့မဟုတ် validation မအောင်မြင်ပါက ထွက်ပေါ်မည့် custom exception |
+| `StructuredDecisionClient` | Protocol | Provider-specific constrained decoding client contract (`generate_decision(prompt, schema) -> dict[str, Any]`) |
+| `parse_prompt_json(raw_output)` | Function | Prompt-based JSON ကို `json.loads()` ဖြင့် decode လုပ်ပြီး `Decision.model_validate()` ဖြင့် validate လုပ်သည်။ |
+| `validate_structured_payload(payload)` | Function | Provider က generate လုပ်ပေးလိုက်သော dictionary payload ကို Runtime ဘက်မှ independent အနေဖြင့် validate လုပ်သည်။ |
+
+```python
+import json
+from typing import Any, Protocol
+
+from pydantic import ValidationError
+
+from .decision import Decision
+
+
+class StructuredOutputError(Exception):
+    """Raised when structured LLM output cannot be parsed or validated."""
+
+
+class StructuredDecisionClient(Protocol):
+    """
+    Provider-facing abstraction for structured decision generation.
+
+    Implementations may use:
+    - constrained decoding
+    - provider-native structured outputs
+    - another schema-enforcing mechanism
+    """
+
+    def generate_decision(
+        self,
+        prompt: str,
+        schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        ...
+
+
+def parse_prompt_json(raw_output: str) -> Decision:
+    """
+    Parse JSON produced by a prompt-based structured-output strategy.
+    """
+
+    try:
+        payload: dict[str, Any] = json.loads(raw_output)
+    except json.JSONDecodeError as exc:
+        raise StructuredOutputError(
+            f"Invalid JSON: {exc.msg}"
+        ) from exc
+
+    try:
+        return Decision.model_validate(payload)
+    except ValidationError as exc:
+        raise StructuredOutputError(
+            f"Decision schema validation failed: {exc}"
+        ) from exc
+
+
+def validate_structured_payload(
+    payload: dict[str, Any],
+) -> Decision:
+    """
+    Validate a provider-produced structured payload.
+
+    The provider is responsible for constraining generation.
+    The runtime still validates the result independently.
+    """
+
+    try:
+        return Decision.model_validate(payload)
+    except ValidationError as exc:
+        raise StructuredOutputError(
+            f"Decision schema validation failed: {exc}"
+        ) from exc
+```
+
+### 6. `app/agent/validation_errors.py` — Structured Validation Error Formatter 🆕
+
+**ဘာလုပ်သလဲ:** Pydantic ၏ ရှည်လျားသော traceback သို့မဟုတ် verbose validation error string များကို LLM ဖတ်ရှုနားလည်နိုင်သော compact, machine-readable observation JSON dict အဖြစ် ပြောင်းလဲပေးသည်။ Error ဖြစ်ပွားသည့် field path, human-readable message, error type များကို structured format ဖြင့် ပြန်ပို့ပေးသဖြင့် LLM သည် မည်သည့် argument မှားယွင်းသည်ကို သိရှိပြီး ချက်ချင်း self-correct လုပ်နိုင်သည်။
+
+| Function | Parameter | Output Shape |
+|---|---|---|
+| `format_validation_error()` | `tool_name: str`, `error: ValidationError` | `{"success": False, "error_type": "tool_argument_validation", "tool_name": tool_name, "message": "...", "errors": [{"field": "...", "message": "...", "type": "..."}]}` |
+
+```python
+from typing import Any
+
+from pydantic import ValidationError
+
+
+def format_validation_error(
+    tool_name: str,
+    error: ValidationError,
+) -> dict[str, Any]:
+    """
+    Convert Pydantic validation errors into a compact,
+    machine-readable observation suitable for an LLM.
+    """
+
+    errors: list[dict[str, Any]] = []
+
+    for item in error.errors():
+        location = ".".join(
+            str(part)
+            for part in item.get("loc", ())
+        )
+
+        errors.append(
+            {
+                "field": location,
+                "message": item.get("msg", "Invalid value"),
+                "type": item.get("type", "validation_error"),
+            }
+        )
+
+    return {
+        "success": False,
+        "error_type": "tool_argument_validation",
+        "tool_name": tool_name,
+        "message": (
+            f"Invalid arguments for tool '{tool_name}'."
+        ),
+        "errors": errors,
+    }
+```
+
+### 7. `app/agent/state.py` — Agent State Machine 🔄
 
 **ဘာလုပ်သလဲ:** Agent loop တစ်ခုလုံး၏ mutable runtime state ကို ထိန်းသိမ်းသော dataclass ဖြစ်သည်။ Conversation history, current iteration counter, loop status, final response, error message နှင့် runtime telemetry အတွက် `ExecutionHistory` တို့ ပါဝင်သည်။
 
@@ -262,8 +581,8 @@ __all__ = [
 | `conversation` | `list[dict[str, Any]]` | LLM နှင့် အပြန်အလှန်ပြောဆိုထားသော message list |
 | `iteration` | `int` | လက်ရှိရောက်ရှိနေသော iteration အကြိမ်အရေအတွက် |
 | `status` | `AgentStatus` | Loop ရဲ့ current status (`RUNNING`, `COMPLETED`, `MAX_ITERATIONS`, `FAILED`) |
-| `final_response` | `str \| None` | Agent ပြီးဆုံးချိန်တွင် user မြင်တွေ့ရမည့် final answer |
-| `error` | `str \| None` | Agent crash/failure ဖြစ်ခဲ့ပါက သိမ်းဆည်းမည့် error message |
+| `final_response` | `str | None` | Agent ပြီးဆုံးချိန်တွင် user မြင်တွေ့ရမည့် final answer |
+| `error` | `str | None` | Agent crash/failure ဖြစ်ခဲ့ပါက သိမ်းဆည်းမည့် error message |
 | `history` | `ExecutionHistory` | Tool run တိုင်း၏ telemetry record များကို စုဆောင်းထားသော audit log |
 | `is_finished` (property) | `bool` | `status != AgentStatus.RUNNING` ဖြစ်ပါက `True` ဖြစ်ပြီး while loop ကို ရပ်တန့်စေသည်။ |
 
@@ -300,7 +619,7 @@ class AgentState:
         return self.status != AgentStatus.RUNNING
 ```
 
-### 4. `app/agent/history.py` — Execution Telemetry & Audit Log 🆕
+### 8. `app/agent/history.py` — Execution Telemetry & Audit Log 🆕
 
 **ဘာလုပ်သလဲ:** Agent အသုံးပြုသွားသော tool executions တိုင်း၏ tool name, arguments, success/failure status, result/error နှင့် duration (milliseconds) များကို စနစ်တကျ မှတ်တမ်းတင်ပေးသော runtime telemetry class pair ဖြစ်သည်။
 
@@ -359,7 +678,7 @@ class ExecutionHistory:
         return len(self._records)
 ```
 
-### 5. `app/agent/loop.py` — Agent Loop Orchestrator 🔄
+### 9. `app/agent/loop.py` — Agent Loop Orchestrator 🔄
 
 **ဘာလုပ်သလဲ:** LLM ၏ decision နှင့် tool executions များကို multi-iteration loop အဖြစ် orchestrate လုပ်ပေးသော core class ဖြစ်သည်။ `ToolCallingClient` Protocol ကို အသုံးပြုထားသဖြင့် LLM provider အပေါ် တိုက်ရိုက် မမှီခိုဘဲ decoupling ဖြစ်စေသည်။ Tool error များကို conversation ထဲသို့ observation အဖြစ် ထည့်သွင်းပေးပြီး execution history ကိုပါ တွဲဖက်မှတ်တမ်းတင်သည်။
 
@@ -486,7 +805,7 @@ class AgentLoop:
         return state
 ```
 
-### 6. `app/agent/single_iteration.py` — Single Iteration Loop (Day 3 Foundation)
+### 10. `app/agent/single_iteration.py` — Single Iteration Loop (Day 3 Foundation)
 
 **ဘာလုပ်သလဲ:** LLM → Tool → LLM ဆိုသည့် single cycle တစ်ကြိမ်တည်း loop ကို စတင်လေ့လာစဉ်က ရေးသားခဲ့သော architectural baseline ဖြစ်သည်။ Multi-turn loop မတိုင်မီ single step စမ်းသပ်ရန်နှင့် baseline logic အဖြစ် ထိန်းသိမ်းထားသည်။
 
@@ -579,7 +898,7 @@ def run_single_iteration(
     )
 ```
 
-### 7. `app/llm/__init__.py` — LLM Module Exports
+### 11. `app/llm/__init__.py` — LLM Module Exports
 
 **ဘာလုပ်သလဲ:** `app.llm` package အတွက် export interface ဖြစ်သည်။
 
@@ -608,7 +927,7 @@ __all__ = [
 ]
 ```
 
-### 8. `app/llm/client.py` — Abstract LLM Interface (ADR-0001)
+### 12. `app/llm/client.py` — Abstract LLM Interface (ADR-0001)
 
 **ဘာလုပ်သလဲ:** LLM provider တိုင်းလိုက်နာရမည့် interface (contract) ဖြစ်သည်။ Provider agnostic ဖြစ်စေရန် ရည်ရွယ်သည်။
 
@@ -634,7 +953,7 @@ class LLMClient(ABC):
         raise NotImplementedError
 ```
 
-### 9. `app/llm/fake_client.py` — Test Fake LLM Client 🔄
+### 13. `app/llm/fake_client.py` — Test Fake LLM Client 🔄
 
 **ဘာလုပ်သလဲ:** Pytest tests များတွင် network calls မသုံးဘဲ deterministic tests များ စိတ်ချလက်ချ run နိုင်ရန် ရေးသားထားသော Fake client ဖြစ်သည်။ Multi-turn testing အတွက် `respond_with_tools()` နှင့် `response_sequence` queue ပါဝင်သည်။
 
@@ -789,7 +1108,7 @@ class FakeLLMClient(LLMClient):
         return fake_response, self._extract_tool_calls(fake_response)
 ```
 
-### 10. `app/llm/openai_client.py` — Real OpenAI/Groq Client 🔄
+### 14. `app/llm/openai_client.py` — Real OpenAI/Groq Client 🔄
 
 **ဘာလုပ်သလဲ:** OpenAI SDK (`client.responses.create`) ကို အသုံးပြု၍ Groq endpoint (`api.groq.com/openai/v1`) မှတဆင့် real LLM calls များ ပြုလုပ်ပေးသော implementation ဖြစ်သည်။ Single iteration နှင့် Multi-turn `AgentLoop` နှစ်မျိုးစလုံးအတွက် support လုပ်ထားသည်။
 
@@ -798,8 +1117,8 @@ class FakeLLMClient(LLMClient):
 | `__init__()` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_TEMPERATURE` များကို load လုပ်ပြီး Groq base_url ဖြင့် client initialize လုပ်သည်။ |
 | `ask()` | Tool မပါသော ရိုးရိုး prompt မေးမြန်းခြင်း |
 | `ask_with_tools()` | Prompt နှင့် tools များကို ပို့ပြီး ပထမဆုံး response နှင့် tool calls များကို ပြန်ယူသည်။ |
-| `continue_with_tool_outputs()` | Tool execution results များကို conversation တွင် ပေါင်းထည့်ပြီး ဆက်မေးသည်။ |
-| `respond_with_tools()` | Multi-iteration `AgentLoop` အတွက် conversation history အပြည့်အစုံနှင့် tools များကို ပေးပို့ကာ tool call requests များကို ပြန်လည် parse လုပ်ပေးသည်။ |
+| `continue_with_tool_outputs()` | Day 3 single iteration အတွက် tool outputs များကို conversation ထဲ ထည့်သွင်း၍ နောက်ဆက်တွဲ final response တောင်းဆိုသည်။ |
+| `respond_with_tools()` | Multi-turn `AgentLoop` အတွက် conversation history အပြည့်အစုံနှင့် tools များကို ပို့ပြီး response နှင့် tool calls များကို parse လုပ်ပေးသည်။ |
 
 ```python
 import json
@@ -950,13 +1269,13 @@ class OpenAIClient(LLMClient):
         return response, tool_calls
 ```
 
-### 11. `app/llm/openai_tools.py` — Tool Format Converter
+### 15. `app/llm/openai_tools.py` — Tool Format Converter
 
-**ဘာလုပ်သလဲ:** ကျွန်ုပ်တို့၏ internal `Tool` object specification ကို OpenAI Functions / Tools JSON schema သို့ convert လုပ်ပေးသော adapter ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** Runtime ၏ provider-independent `Tool` specification ကို OpenAI function calling API လက်ခံနိုင်သော JSON schema format သို့ ပြောင်းလဲပေးသည်။
 
 | Function | တာဝန် |
 |---|---|
-| `to_openai_tool(tool: Tool) -> dict` | `tool.name`, `tool.description`, `tool.input_schema` များကိုယူပြီး `{"type": "function", "name": ..., "strict": True}` schema သို့ ပြောင်းပေးသည်။ |
+| `to_openai_tool(tool: Tool) -> dict[str, Any]` | Tool မှ `name`, `description`, `parameters` များကို ထုတ်ယူပြီး `type: "function"` ဖြင့် OpenAI tool format သို့ convert လုပ်ပေးသည်။ |
 
 ```python
 from typing import Any
@@ -976,21 +1295,23 @@ def to_openai_tool(tool: Tool) -> dict[str, Any]:
     }
 ```
 
-### 12. `app/tools/__init__.py` — Tools Module Exports 🔄
+### 16. `app/tools/__init__.py` — Tools Module Exports 🔄
 
-**ဘာလုပ်သလဲ:** `app.tools` package မှ Tool base classes, concrete file tools, `Workspace` security boundary နှင့် execution components များကို export လုပ်ပေးသော file ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** `app.tools` package မှ Tool base classes, concrete file tools, schemas, argument registry, `Workspace` security boundary နှင့် execution components များကို export လုပ်ပေးသော file ဖြစ်သည်။
 
 | Exported Symbol | တာဝန် |
 |---|---|
 | `Tool` | Abstract base class |
 | `ToolCall`, `ToolExecution` | Data models |
 | `ToolExecutor`, `ToolRegistry` | Execution runtime & lookup store |
+| `ToolArgumentRegistry` | 🆕 Pydantic argument schema registry |
 | `Workspace` | Security boundary class (Path traversal protection) |
 | `ListFilesTool` | Workspace-aware directory listing |
 | `ReadFileTool` | Workspace-aware UTF-8 reader with size limit |
 | `SearchTextTool` | Workspace-aware text search tool |
 
 ```python
+from .argument_registry import ToolArgumentRegistry
 from .base import Tool
 from .call import ToolCall
 from .execution import ToolExecution
@@ -1006,6 +1327,7 @@ __all__ = [
     "ReadFileTool",
     "SearchTextTool",
     "Tool",
+    "ToolArgumentRegistry",
     "ToolCall",
     "ToolExecution",
     "ToolExecutor",
@@ -1014,17 +1336,150 @@ __all__ = [
 ]
 ```
 
-### 13. `app/tools/base.py` — Abstract Tool Base Class
+### 17. `app/tools/schemas.py` — Pydantic Tool Argument Schemas 🆕
 
-**ဘာလုပ်သလဲ:** Agent စနစ်ရှိ Tool အားလုံး လိုက်နာရမည့် Abstract Base Class (ABC) ဖြစ်သည်။ Tool တစ်ခုချင်းစီ၏ name, description, schema နှင့် execution logic ကို standard ဖြစ်စေသည်။
+**ဘာလုပ်သလဲ:** Tool arguments များကို untrusted input အဖြစ် သတ်မှတ်ပြီး Pydantic ဖြင့် strict validation စည်းမျဉ်းများ သတ်မှတ်ထားသော schema file ဖြစ်သည်။ Extra fields ပိတ်ပင်ခြင်း (`extra="forbid"`), whitespace strip လုပ်ခြင်း, empty path/query ပိတ်ပင်ခြင်းနှင့် positive bounds (`gt=0`) များကို စစ်ဆေးသည်။
+
+| Model | Inherits | Fields & Validations |
+|---|---|---|
+| `ToolArgs` | `BaseModel` | Base model with `extra="forbid"`, `str_strip_whitespace=True` |
+| `ListFilesArgs` | `ToolArgs` | `path: str = ""` (default workspace root) |
+| `ReadFileArgs` | `ToolArgs` | `path: str` (non-empty validator), `max_bytes: int = 100_000` (`gt=0`) |
+| `SearchTextArgs` | `ToolArgs` | `query: str` (non-empty validator), `path: str = ""`, `max_results: int = 50` (`gt=0`), `max_file_bytes: int = 100_000` (`gt=0`) |
+
+```python
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class ToolArgs(BaseModel):
+    """
+    Base class for all tool argument models.
+
+    Tool arguments are treated as untrusted input coming from
+    the LLM and therefore use strict validation rules.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+
+class ListFilesArgs(ToolArgs):
+    """
+    Arguments for list_files.
+    """
+
+    path: str = ""
+
+
+class ReadFileArgs(ToolArgs):
+    """
+    Arguments for read_file.
+    """
+
+    path: str
+    max_bytes: int = Field(
+        default=100_000,
+        gt=0,
+    )
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value: str) -> str:
+        if not value:
+            raise ValueError("path must not be empty")
+
+        return value
+
+
+class SearchTextArgs(ToolArgs):
+    """
+    Arguments for search_text.
+    """
+
+    query: str
+    path: str = ""
+    max_results: int = Field(
+        default=50,
+        gt=0,
+    )
+    max_file_bytes: int = Field(
+        default=100_000,
+        gt=0,
+    )
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, value: str) -> str:
+        if not value:
+            raise ValueError("query must not be empty")
+
+        return value
+```
+
+### 18. `app/tools/argument_registry.py` — Tool Argument Registry 🆕
+
+**ဘာလုပ်သလဲ:** Tool name အလိုက် သက်ဆိုင်ရာ Pydantic argument model နှင့် ချိတ်ဆက်ပေးထားပြီး LLM မှ ရရှိလာသော untrusted arguments dictionary ကို validate လုပ်ပေးသော registry ဖြစ်သည်။
+
+| Method | တာဝန် |
+|---|---|
+| `__init__()` | `"list_files": ListFilesArgs`, `"read_file": ReadFileArgs`, `"search_text": SearchTextArgs` mapping ကို တည်ဆောက်သည်။ |
+| `get_schema(tool_name)` | သက်ဆိုင်ရာ argument model class ကို ပြန်ပေးသည်။ မရှိပါက `ValueError` ပေးသည်။ |
+| `validate(tool_name, arguments)` | Tool argument dictionary ကို `schema.model_validate(arguments)` ဖြင့် parse & validate လုပ်ပေးသည်။ |
+
+```python
+from typing import Any
+
+from pydantic import BaseModel
+
+from app.tools.schemas import (
+    ListFilesArgs,
+    ReadFileArgs,
+    SearchTextArgs,
+)
+
+
+class ToolArgumentRegistry:
+    """
+    Maps tool names to their Pydantic argument schemas.
+    """
+
+    def __init__(self) -> None:
+        self._schemas: dict[str, type[BaseModel]] = {
+            "list_files": ListFilesArgs,
+            "read_file": ReadFileArgs,
+            "search_text": SearchTextArgs,
+        }
+
+    def get_schema(self, tool_name: str) -> type[BaseModel]:
+        try:
+            return self._schemas[tool_name]
+        except KeyError as exc:
+            raise ValueError(
+                f"No argument schema registered for tool: {tool_name}"
+            ) from exc
+
+    def validate(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> BaseModel:
+        schema = self.get_schema(tool_name)
+
+        return schema.model_validate(arguments)
+```
+
+### 19. `app/tools/base.py` — Abstract Tool Base Class
+
+**ဘာလုပ်သလဲ:** Agent runtime တွင် tool အသစ်တိုင်း လိုက်နာရမည့် interface (contract) ဖြစ်သည်။
 
 | Property / Method | တာဝန် |
 |---|---|
-| `name` (abstract property) | Tool ၏ နာမည် (e.g. `list_files`, `read_file`) |
-| `description` (abstract property) | Tool အကြောင်း ရှင်းလင်းချက် (LLM က ဖတ်ရှု၍ ရွေးချယ်ရန်) |
-| `input_schema` (abstract property) | Tool input argument များအတွက် JSON Schema |
-| `run(arguments)` (abstract method) | Argument များကို လက်ခံပြီး အမှန်တကယ် execute လုပ်ရမည့် logic |
-| `definition()` | Provider-agnostic metadata dictionary (`name`, `description`, `input_schema`) ပြန်ပေးသည်။ |
+| `name` (abstract property) | Tool ၏ နာမည် (ဥပမာ `list_files`) |
+| `description` (abstract property) | Tool ၏ လုပ်ဆောင်ချက် ရှင်းလင်းချက် |
+| `parameters` (abstract property) | Tool လက်ခံမည့် arguments များ၏ JSON schema |
+| `run(arguments)` (abstract method) | Tool ၏ အဓိက operation logic ကို run ခြင်း |
 
 ```python
 from abc import ABC, abstractmethod
@@ -1066,15 +1521,15 @@ class Tool(ABC):
         }
 ```
 
-### 14. `app/tools/call.py` — ToolCall Data Class
+### 20. `app/tools/call.py` — ToolCall Data Class
 
-**ဘာလုပ်သလဲ:** LLM မှ tool call ခေါ်ဆိုရန် တောင်းဆိုလာသည့် request ကို provider-independent အဖြစ် ကိုယ်စားပြုသော immutable dataclass ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** LLM ထံမှ tool ခေါ်ဆိုရန် request ရောက်ရှိလာသည့် snapshot ကို သိမ်းဆည်းသော immutable dataclass ဖြစ်သည်။
 
-| Field | တာဝန် |
-|---|---|
-| `call_id` (`str`) | Model က ပေးပို့သော call correlation ID (e.g. `call_001`) |
-| `tool_name` (`str`) | ခေါ်ဆိုလိုသော tool နာမည် |
-| `arguments` (`dict[str, Any]`) | Tool သို့ ပေးပို့မည့် parsed arguments dictionary |
+| Field | Type | ရှင်းလင်းချက် |
+|---|---|---|
+| `tool_name` | `str` | ခေါ်ဆိုလိုသော tool နာမည် |
+| `arguments` | `dict[str, Any]` | Tool သို့ ပေးပို့မည့် arguments များ |
+| `call_id` | `str` | API message tracking အတွက် unique ID (default `"call_default"`) |
 
 ```python
 from dataclasses import dataclass
@@ -1090,18 +1545,18 @@ class ToolCall:
     arguments: dict[str, Any]
 ```
 
-### 15. `app/tools/execution.py` — ToolExecution Data Class
+### 21. `app/tools/execution.py` — ToolExecution Data Class
 
-**ဘာလုပ်သလဲ:** Tool တစ်ခု run ပြီးချိန်တွင် ထွက်ပေါ်လာသော execution result, error message နှင့်ကြာချိန် (duration) တို့ကို သိမ်းဆည်းသော immutable dataclass ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** Tool execution တစ်ခု ပြီးဆုံးသွားသည့်အခါ ရလဒ်နှင့် timing ကို သိမ်းဆည်းသော immutable snapshot ဖြစ်သည်။
 
-| Field / Property | တာဝန် |
-|---|---|
-| `tool_name` (`str`) | Run ခဲ့သော tool နာမည် |
-| `arguments` (`dict[str, Any]`) | ပေးပို့ခဲ့သော input arguments |
-| `result` (`Any \| None`) | အောင်မြင်ပါက ပြန်ရသော data (failure ဖြစ်ပါက `None`) |
-| `error` (`str \| None`) | ကျရှုံးပါက ဖြစ်ပေါ်သော error message (success ဖြစ်ပါက `None`) |
-| `duration_ms` (`float`) | Execution ကြာချိန် (milliseconds) |
-| `success` (property) | `self.error is None` ဖြစ်ပါက `True` ဖြစ်သည်။ |
+| Field / Property | Type | ရှင်းလင်းချက် |
+|---|---|---|
+| `tool_name` | `str` | Run ခဲ့သော tool နာမည် |
+| `arguments` | `dict[str, Any]` | ပေးပို့ခဲ့သော arguments များ |
+| `result` | `Any` | Tool မှ အောင်မြင်စွာ ပြန်ပေးလိုက်သော data |
+| `error` | `str | None` | Error တက်ခဲ့ပါက exception message |
+| `duration_ms` | `float` | Tool run ရန် ကြာမြင့်ခဲ့သော အချိန် (milliseconds) |
+| `success` (property) | `bool` | `error is None` ဖြစ်ပါက `True` ဖြစ်သည်။ |
 
 ```python
 from dataclasses import dataclass
@@ -1123,14 +1578,14 @@ class ToolExecution:
         return self.error is None
 ```
 
-### 16. `app/tools/executor.py` — Tool Executor (Execution & Exception Boundary)
+### 22. `app/tools/executor.py` — Tool Executor (Execution & Exception Boundary)
 
-**ဘာလုပ်သလဲ:** `ToolRegistry` မှ tool ကို ရှာဖွေပြီး timing တွက်ကာ run ပေးသော class ဖြစ်သည်။ မည်သည့် exception ဖြစ်ပေါ်ပါစေ executor boundary တွင် catch လုပ်ကာ `ToolExecution(success=False, error=str(exc))` အဖြစ် ပြောင်းပေးသဖြင့် agent process မ crash ဘဲ အလုပ်ဆက်လုပ်နိုင်သည်။
+**ဘာလုပ်သလဲ:** Tool registry ထဲမှ tool ကို lookup လုပ်ပြီး execute လုပ်ပေးသည်။ Timing တိုင်းတာခြင်းနှင့် `# noqa: BLE001` ဖြင့် intentional broad exception boundary ထားရှိပြီး runtime crash မဖြစ်စေရန် safe observation အဖြစ် convert လုပ်ပေးသည်။
 
 | Method | တာဝန် |
 |---|---|
-| `__init__(registry)` | `ToolRegistry` ကို inject လုပ်သည်။ |
-| `execute(*, tool_name, arguments)` | `perf_counter()` ဖြင့် အချိန်စမှတ်သည် → registry မှ tool ယူသည် → `tool.run(arguments)` ခေါ်သည် → exception တက်ပါက catch လုပ်ပြီး `ToolExecution` ပြန်ပေးသည်။ |
+| `__init__(registry)` | `ToolRegistry` dependency ကို inject လုပ်သည်။ |
+| `execute(tool_name, arguments)` | Start time မှတ်သည် → `registry.get()` ရှာသည် → `tool.run()` run သည် → duration တွက်သည် → `ToolExecution` ပြန်ပေးသည်။ Exception တက်ပါက `ToolExecution(success=False, error=str(exc))` ပြန်ပေးသည်။ |
 
 ```python
 from time import perf_counter
@@ -1181,15 +1636,15 @@ class ToolExecutor:
             )
 ```
 
-### 17. `app/tools/workspace.py` — Workspace Security Boundary 🆕
+### 23. `app/tools/workspace.py` — Workspace Security Boundary 🆕
 
-**ဘာလုပ်သလဲ:** Agentic AI စနစ်၏ အရေးကြီးဆုံး Security Boundary ဖြစ်သည်။ Path traversal attacks (ဥပမာ `../../secret.txt` သို့မဟုတ် `/etc/passwd`) ကို ကာကွယ်ရန် paths များကို workspace root အောက်တွင်သာ resolve လုပ်ခွင့်ပြုပြီး အပြင်သို့ လွတ်ထွက်ပါက `PermissionError` raise လုပ်သည်။ Tool တိုင်းတွင် duplicate code ရေးစရာမလိုဘဲ centralized security boundary ဖြစ်စေသည်။
+**ဘာလုပ်သလဲ:** Agent ၏ filesystem operations များကို workspace directory အတွင်း၌သာ ကန့်သတ်ထားပြီး Path Traversal attacks (`../../secret.txt`, symlink escapes) များကို တားဆီးပေးသော centralized security boundary ဖြစ်သည်။
 
-| Method / Property | တာဝန် |
+| Method | တာဝန် |
 |---|---|
-| `__init__(root)` | Workspace root directory ကို resolve လုပ်ပြီး absolute path အဖြစ် သိမ်းဆည်းသည်။ |
-| `root` (property) | Resolved root `Path` object ကို ပြန်ပေးသည်။ |
-| `resolve(path)` | `(self._root / path).resolve()` တွက်ပြီး `candidate.relative_to(self._root)` စစ်ဆေးသည်။ Root အပြင်ရောက်ပါက `PermissionError("Path escapes workspace: ...")` raise လုပ်သည်။ |
+| `__init__(root)` | Workspace root directory ကို absolute path အဖြစ် resolve လုပ်ထားသည်။ |
+| `root` (property) | Resolved root path ကို ပြန်ပေးသည်။ |
+| `resolve(path)` | Relative path ကို လက်ခံပြီး workspace root ဖြင့် ပေါင်းစပ်ကာ absolute path အဖြစ် resolve လုပ်သည်။ အကယ်၍ resolved path သည် workspace root ပြင်ပသို့ ရောက်ရှိနေပါက `PermissionError` raise လုပ်သည်။ |
 
 ```python
 from pathlib import Path
@@ -1220,17 +1675,14 @@ class Workspace:
         return candidate
 ```
 
-### 18. `app/tools/list_files.py` — ListFiles Tool 🔄
+### 24. `app/tools/list_files.py` — ListFiles Tool 🔄
 
-**ဘာလုပ်သလဲ:** Workspace အတွင်းရှိ directory နှင့် files များကို list လုပ်ပေးသော tool ဖြစ်သည်။ `Workspace` boundary ကို အသုံးပြုသဖြင့် workspace ပြင်ပ directory များကို list လုပ်ခွင့်မရှိပါ။
+**ဘာလုပ်သလဲ:** Workspace directory အတွင်းရှိ files နှင့် subdirectories များကို စစ်ဆေးဖော်ပြပေးသော tool ဖြစ်သည်။
 
-| Method / Property | တာဝန် |
+| Component | တာဝန် |
 |---|---|
-| `__init__(workspace)` | `Workspace` instance ကို လက်ခံသည်။ |
-| `name` | `"list_files"` |
-| `description` | "List files and directories under a workspace-relative directory..." |
-| `input_schema` | `{"path": {"type": "string"}}` (empty string သည် workspace root ကို ဆိုလိုသည်) |
-| `run(arguments)` | `self._workspace.resolve(path)` ဖြင့် စစ်ဆေးသည် → directory မရှိပါက `FileNotFoundError`၊ directory မဟုတ်ပါက `NotADirectoryError` raise သည် → sorted file names list ပြန်ပေးသည်။ |
+| `name`, `description`, `parameters` | `list_files` tool metadata |
+| `run(arguments)` | `workspace.resolve(path)` ဖြင့် လုံခြုံစွာ resolve လုပ်ပြီး directory မဟုတ်ပါက `NotADirectoryError` ပေးသည်၊ directory ဖြစ်ပါက sorted file/dir list ကို ပြန်ပေးသည်။ |
 
 ```python
 from typing import Any
@@ -1293,16 +1745,13 @@ class ListFilesTool(Tool):
         )
 ```
 
-### 19. `app/tools/read_file.py` — ReadFile Tool 🆕
+### 25. `app/tools/read_file.py` — ReadFile Tool 🆕
 
-**ဘာလုပ်သလဲ:** Workspace အတွင်းရှိ UTF-8 text file တစ်ခု၏ content ကို ဖတ်ရှုပေးသော tool ဖြစ်သည်။ ဖိုင်အရွယ်အစား limit (`max_bytes=100_000`) ပါရှိပြီး Context Window budget မကျော်လွန်စေရန် ထိန်းချုပ်ပေးသည်။
+**ဘာလုပ်သလဲ:** Workspace အတွင်းရှိ ဖိုင်များကို UTF-8 encoding ဖြင့် ဖတ်ရှုပေးသော tool ဖြစ်သည်။ Context budget foundation အဖြစ် `max_bytes` limit ပါဝင်ပြီး ဖိုင်အရွယ်အစားကြီးမားပါက `ValueError` ပေးသည်။
 
-| Method / Property | တာဝန် |
+| Component | တာဝန် |
 |---|---|
-| `__init__(workspace, *, max_bytes)` | `Workspace` နှင့် အများဆုံးဖတ်ခွင့်ရှိသော bytes အရေအတွက် (default: 100,000 bytes) ကို သတ်မှတ်သည်။ |
-| `name` | `"read_file"` |
-| `input_schema` | `{"path": {"type": "string"}}` |
-| `run(arguments)` | `resolve(path)` ဖြင့် စစ်ဆေးသည် → ဖိုင်မရှိပါက `FileNotFoundError` → directory ဖြစ်နေပါက `IsADirectoryError` → `max_bytes` ကျော်ပါက `ValueError` → UTF-8 မဟုတ်ပါက `ValueError` raise လုပ်သည်။ အောင်မြင်ပါက `{"path": ..., "content": ..., "size_bytes": ...}` dictionary ပြန်ပေးသည်။ |
+| `run(arguments)` | `workspace.resolve(path)` ဖြင့် resolve လုပ်သည် → ဖိုင်မရှိပါက `FileNotFoundError` → directory ဖြစ်နေပါက `IsADirectoryError` → ဖိုင်ဆိုဒ်သည် `max_bytes` ထက်ကျော်ပါက `ValueError` → UTF-8 text အဖြစ် decode လုပ်ပြီး `{"path": path, "content": text}` ပြန်ပေးသည်။ |
 
 ```python
 from typing import Any
@@ -1387,16 +1836,14 @@ class ReadFileTool(Tool):
         }
 ```
 
-### 20. `app/tools/search_text.py` — SearchText Tool 🆕
+### 26. `app/tools/search_text.py` — SearchText Tool 🆕
 
-**ဘာလုပ်သလဲ:** Workspace အတွင်းရှိ files များထဲတွင် case-insensitive text search ပြုလုပ်ပေးပြီး matching line numbers နှင့် text များကို ပြန်ပေးသော tool ဖြစ်သည်။ Cognitive Complexity ≤ 15 စံနှုန်းနှင့်အညီ `_search_file()` helper သို့ clean refactoring ပြုလုပ်ထားပြီး `.git` directory များကို automatically skip လုပ်သည်။
+**ဘာလုပ်သလဲ:** Workspace အတွင်းရှိ ဖိုင်များထဲတွင် case-insensitive keyword search ပြုလုပ်ပေးသော tool ဖြစ်သည်။ Cognitive Complexity <= 15 စည်းမျဉ်းအရ `_search_file()` helper သီးသန့်ခွဲထုတ်ထားသည်။
 
-| Method / Helper | တာဝန် |
+| Component | တာဝန် |
 |---|---|
-| `__init__(workspace, *, max_results, max_file_bytes)` | `max_results` (default: 50) နှင့် `max_file_bytes` (default: 200,000) limits သတ်မှတ်သည်။ |
-| `run(arguments)` | Query နှင့် path ကို စစ်ဆေးသည် → target files များကို iterate လုပ်သည် → line matches များကို စုဆောင်းပြီး `max_results` ပြည့်ပါက ရပ်တန့်သည်။ |
-| `_search_file(file_path, relative_path, query)` | ဖိုင်တစ်ခုချင်းစီ၏ UTF-8 lines များကို ဖတ်ပြီး `query_lower in line.lower()` ကို ရှာကာ line number ပါဝင်သော matches list ကို ပြန်ပေးသည်။ |
-| `_iter_files(directory)` | Recursive glob ဖြင့် files များကို ရှာဖွေပြီး `.git` directory များကို skip လုပ်သည်။ |
+| `_search_file()` (helper) | Single file တစ်ခုချင်းစီကို binary check လုပ်ပြီး line-by-line keyword ရှာဖွေပေးသည်။ |
+| `run(arguments)` | Recursive rglob ဖြင့် files များကို ရှာဖွေပြီး `max_results` အထိ match ဖြစ်သော line number နှင့် content များကို ပြန်ပေးသည်။ |
 
 ```python
 from pathlib import Path
@@ -1533,16 +1980,15 @@ class SearchTextTool(Tool):
         return sorted(files)
 ```
 
-### 21. `app/tools/registry.py` — Tool Registry
+### 27. `app/tools/registry.py` — Tool Registry
 
-**ဘာလုပ်သလဲ:** Tool များကို နာမည်ဖြင့် register လုပ်ခြင်း၊ ရှာဖွေခြင်း (lookup) နှင့် duplicate registration မဖြစ်စေရန် validate လုပ်ပေးသော centralized store ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** Agent အသုံးပြုနိုင်သော tools များကို သိမ်းဆည်းပေးပြီး tool name ဖြင့် lookup လုပ်ပေးသော central store ဖြစ်သည်။
 
 | Method | တာဝန် |
 |---|---|
-| `register(tool: Tool)` | Tool အား register လုပ်သည်။ နာမည်တူ tool ရှိနှင့်ပြီးပါက `ValueError("Tool already registered: ...")` raise လုပ်သည်။ |
-| `get(name: str) -> Tool` | နာမည်ဖြင့် tool ကို ရှာယူသည်။ မရှိပါက `KeyError("Unknown tool: ...")` raise လုပ်သည်။ |
-| `list() -> list[Tool]` | Register လုပ်ထားသော tool objects အားလုံးကို list ပြန်ပေးသည်။ |
-| `definitions() -> list[dict]` | Registered tools များအားလုံး၏ metadata definitions list ကို ပြန်ပေးသည်။ |
+| `register(tool)` | Tool ကို registry ထဲ ထည့်သည်။ နာမည်တူပြီးသားဖြစ်ပါက `ValueError` ပေးသည်။ |
+| `get(tool_name)` | နာမည်ဖြင့် tool ရှာပေးသည်။ မရှိပါက `KeyError` ပေးသည်။ |
+| `list()` | Register လုပ်ထားသော tool instances အားလုံးကို list အနေဖြင့် ပြန်ပေးသည်။ |
 
 ```python
 import builtins
@@ -1585,9 +2031,9 @@ class ToolRegistry:
 ---
 
 ## ⚙️ PART 2: CONFIGURATION & DOCUMENTATION FILES
-### 22. `pyproject.toml` — Project Configuration & Build Tooling
+### 28. `pyproject.toml` — Project Configuration & Build Tooling
 
-**ဘာလုပ်သလဲ:** Project ၏ metadata, dependencies, Python version (>=3.11), build system (hatchling), dev dependencies (pytest, mypy, ruff) နှင့် linter settings များကို သတ်မှတ်ထားသော configuration file ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** Python project ၏ build backend (`hatchling`), dependencies (`openai`, `pydantic`, `python-dotenv`), development tools (`pytest`, `mypy`, `ruff`) နှင့် configuration များကို သတ်မှတ်ထားသည်။
 
 ```toml
 [build-system]
@@ -1620,11 +2066,11 @@ testpaths = ["tests"]
 line-length = 100
 ```
 
-### 23. `.env.example` — Environment Variable Template
+### 29. `.env.example` — Environment Variable Template
 
-**ဘာလုပ်သလဲ:** OpenAI API key နှင့် configurations များအတွက် template ဖြစ်သည်။ Real values များကို `.env` file သို့ ကူးယူထည့်သွင်းရမည်ဖြစ်ပြီး git ထဲ commit မပြုလုပ်ရပါ။
+**ဘာလုပ်သလဲ:** Developer အသစ်များ စတင် run နိုင်ရန် API key နှင့် configuration environment variables template ဖြစ်သည်။
 
-```text
+```bash
 # Copy this file to .env and fill in your real values.
 # Never commit .env to version control.
 
@@ -1633,9 +2079,9 @@ OPENAI_MODEL=
 OPENAI_TEMPERATURE=
 ```
 
-### 24. `conftest.py` — Pytest Path Configuration
+### 30. `conftest.py` — Pytest Path Configuration
 
-**ဘာလုပ်သလဲ:** Pytest test runner အား project root directory ကို Python sys.path ထဲသို့ ထည့်သွင်းစေပြီး test files များမှ `from app.xxx import ...` ဟု absolute imports သုံးနိုင်ရန် ပြုလုပ်ပေးသည်။
+**ဘာလုပ်သလဲ:** Pytest run သည့်အခါ project root path ကို python path ထဲ ထည့်သွင်းပေးပြီး `from app.xxx import ...` import များ အဆင်ပြေစေရန် လုပ်ဆောင်ပေးသည်။
 
 ```python
 # conftest.py — project-root conftest
@@ -1643,9 +2089,9 @@ OPENAI_TEMPERATURE=
 # to sys.path so that `from app.xxx import ...` works in all test modules.
 ```
 
-### 25. `README.md` — Project Overview & Vision
+### 31. `README.md` — Project Overview & Vision
 
-**ဘာလုပ်သလဲ:** Project ၏ ရည်ရွယ်ချက်၊ Third-party frameworks (LangChain, CrewAI စသည်) မပါဘဲ Native LLM SDK ဖြင့် coding agent runtime အား from-scratch တည်ဆောက်ပုံ အနှစ်ချုပ်ကို ဖော်ပြထားသည်။
+**ဘာလုပ်သလဲ:** Agent Runtime ၏ core philosophy, goals, architecture နှင့် setup များကို ရှင်းပြထားသော document ဖြစ်သည်။
 
 ```markdown
 # Agent Runtime
@@ -1680,124 +2126,86 @@ Agent Runtime
      +---- FakeLLMClient
 ```
 
-### 26. `PROGRESS.md` — Learning Milestones Log
+### 32. `PROGRESS.md` — Learning Milestones Log
 
-**ဘာလုပ်သလဲ:** Agent runtime တည်ဆောက်ခြင်း သင်ယူမှုခရီးစဉ်၏ Day-by-Day progress logs များကို မှတ်တမ်းတင်ထားသည်။
+**ဘာလုပ်သလဲ:** Day-by-day learning milestones နှင့် code state များကို မှတ်တမ်းတင်ထားသော log ဖြစ်သည်။
 
 ```markdown
-# PROGRESS
-
 ## Current
-Week 1 / Day 5 — Complete
-Date: 2026-10-02
+
+Week 2 / Day 2 — Pydantic Validation
+Date: 2026-10-03
 
 ## Done
 
-### Week 1 Day 1
-- Project skeleton created
-- Python 3.11+
-- pytest / pydantic / type hints
-- LLM provider abstraction
-- Fake LLM client
-- ADR-0001: provider-independent LLM interface
+### Week 2 Day 1
+- Machine-verifiable Decision schema
+- DecisionAction enum
+- Structured output strategies comparison
+- Prompt-based JSON parsing
+- Provider-agnostic structured payload validation
+- JSON Schema generation
 
-### Week 1 Day 2
-- Tool abstraction
-- ToolRegistry
-- ListFilesTool
-- Provider-independent tool definition
+### Week 2 Day 2
+- Added ToolArgs base Pydantic model
+- Added ListFilesArgs
+- Added ReadFileArgs
+- Added SearchTextArgs
+- Added strict unknown-field rejection
+- Added field-level constraints
+- Added ToolArgumentRegistry
+- Added tool-name → argument-schema mapping
+- Added structured validation error formatter
+- Distinguished schema validation from workspace authorization
+- Added validation tests for invalid types, missing fields, invalid ranges, and unknown fields
 
-### Week 1 Day 3
-- Native tool calling
-- ToolCall
-- ToolExecution
-- ToolExecutor
-- OpenAI/Groq tool adapter
-- Single LLM → Tool → Tool Result → LLM flow
+## Key Design Decisions
 
-### Week 1 Day 4
-- AgentStatus
-- AgentState
-- AgentLoop
-- Multi-iteration tool calling
-- max iteration termination
-- FakeLLM response_sequence
-- Deterministic multi-step tests
-- 19/19 tests passing at checkpoint
-
-### Week 1 Day 5
-- ExecutionHistory & ExecutionRecord telemetry store
-- Workspace security boundary abstraction (path traversal protection)
-- ReadFileTool with UTF-8 support and context budget `max_bytes` limit
-- SearchTextTool with case-insensitive search and Cognitive Complexity ≤ 15 refactoring (`_search_file()` helper)
-- ListFilesTool updated to use Workspace
-- Error as Observation architecture implemented (tool errors returned as observations)
-- AgentLoop updated to depend on `ToolCallingClient` protocol (ADR-0001 provider independence)
-- AgentLoop records tool execution history with execution timing (duration_ms)
-- Output shaping: explicit `{"success": true/false}` observations for LLM
-- ToolExecutor safe exception boundary (`# noqa: BLE001` intentional broad catch)
-- Separation of Concerns codified: LLM (Decide & Re-plan) vs ToolExecutor (Execute safely)
-- Infinite loop protection via `max_iterations` and `AgentStatus.MAX_ITERATIONS`
-- Iteration counter semantics clarified: "Completed tool-decision cycles count"
-- 5 Error recovery & runtime safety experiments:
-  - Exp 1A: Hallucinated tool name recovery (`repo_browser.list_files` → `list_files`)
-  - Exp 1B: Invalid file recovery (`read_file("missing.py")` → `FileNotFoundError` → `list_files`)
-  - Exp 2: Path traversal attack blocked (`../../secret.txt` → `PermissionError`)
-  - Exp 3: Huge file budget limit (`max_bytes` → `ValueError`)
-  - Exp 4: Realistic repo exploration smoke test (`list_files` → `read_file` → final answer)
-  - Exp 5: Max iterations infinite tool loop termination
-- `app/main.py` updated with AgentLoop, Workspace, 3 tools, and telemetry JSON print
-- Real API live run on Groq (`openai/gpt-oss-120b`) demonstrating live tool error self-correction
-- Full test suite expanded from 19 tests to 40 tests across 9 test files (100% passing)
-- Linter: 100% ruff clean
+- `Decision` validates agent-level intent
+- `ToolArgs` validates tool-level input contracts
+- `ToolArgumentRegistry` maps tool names to their argument schemas
+- Pydantic validation happens before tool execution
+- Validation errors are converted into structured observations
+- Workspace remains responsible for path authorization/security
+- Schema validation and execution security remain separate boundaries
 
 ## Code State
 
-```text
 agent-runtime/
 ├── app/
-│   ├── main.py                  (AgentLoop + Workspace + 3 Tools + Telemetry)
 │   ├── agent/
-│   │   ├── __init__.py          (Exports AgentLoop, AgentState, ExecutionHistory, etc.)
-│   │   ├── history.py           (ExecutionRecord, ExecutionHistory)
-│   │   ├── loop.py              (AgentLoop, ToolCallingClient Protocol)
-│   │   ├── single_iteration.py  (Baseline single iteration loop)
-│   │   └── state.py             (AgentState, AgentStatus, history field)
-│   ├── llm/
-│   │   ├── __init__.py
-│   │   ├── client.py            (LLMClient ABC)
-│   │   ├── fake_client.py       (FakeLLMClient, FakeResponse, multi-step sequence)
-│   │   ├── openai_client.py     (OpenAIClient with Groq endpoint support)
-│   │   └── openai_tools.py      (to_openai_tool adapter)
+│   │   ├── decision.py
+│   │   ├── decision_schema.py
+│   │   ├── structured_output.py
+│   │   └── validation_errors.py
 │   └── tools/
-│       ├── __init__.py
-│       ├── base.py              (Tool ABC)
-│       ├── call.py              (ToolCall dataclass)
-│       ├── execution.py         (ToolExecution dataclass)
-│       ├── executor.py          (ToolExecutor with timing & exception boundary)
-│       ├── list_files.py        (Workspace-aware ListFilesTool)
-│       ├── read_file.py         (Workspace-aware ReadFileTool with size limit)
-│       ├── registry.py          (ToolRegistry store)
-│       ├── search_text.py       (Workspace-aware SearchTextTool, complexity ≤ 15)
-│       └── workspace.py         (Workspace security boundary)
+│       ├── argument_registry.py
+│       └── schemas.py
 └── tests/
-    ├── test_agent_loop.py       (4 tests — multi-iteration orchestration)
-    ├── test_agent_state.py      (4 tests — state transitions & defaults)
-    ├── test_error_recovery.py   (13 tests — error recovery & safety experiments)
-    ├── test_file_tools.py       (4 tests — workspace file tools integration)
-    ├── test_llm_client.py       (2 tests — fake LLM client)
-    ├── test_openai_tools.py     (1 test — tool schema conversion)
-    ├── test_single_iteration.py (2 tests — single iteration baseline)
-    ├── test_tools.py            (7 tests — tool registry & list_files)
-    └── test_workspace.py        (3 tests — path traversal & resolution)
+    ├── test_decision.py
+    ├── test_structured_output.py
+    ├── test_tool_schemas.py
+    ├── test_argument_registry.py
+    └── test_validation_errors.py
 
-Total: 40/40 passed (100%)
+## Today's Goal
+
+Create a typed Pydantic validation layer for tool arguments
+and convert validation failures into structured agent observations.
+
+## Next
+
+Week 2 / Day 3 — Malformed Output + Retry
+- Error feedback to LLM
+- Bounded retry
+- Exponential backoff
+- Transient vs permanent errors
+- Error taxonomy
 ```
-```
 
-### 27. `docs/adr/0001-llm-provider-abstraction.md` — ADR-0001: Provider-Independent Interface
+### 33. `docs/adr/0001-llm-provider-abstraction.md` — ADR-0001: Provider-Independent Interface
 
-**ဘာလုပ်သလဲ:** OpenAI SDK ကို တိုက်ရိုက်မမှီခိုဘဲ Provider-Independent `LLMClient` interface အား မိတ်ဆက်ရခြင်း၏ context, decision, positive/negative consequences များကို မှတ်တမ်းတင်ထားသော Architecture Decision Record ဖြစ်သည်။
+**ဘာလုပ်သလဲ:** OpenAI SDK သို့မဟုတ် single provider အပေါ် တိုက်ရိုက်မမှီခိုဘဲ Provider-Independent Interface တည်ဆောက်ရန် ချမှတ်ခဲ့သော Architectural Decision Record ဖြစ်သည်။
 
 ```markdown
 # ADR-0001: Introduce a Provider-Independent LLM Interface
@@ -1865,11 +2273,11 @@ Rejected because this project explicitly builds the runtime
 from scratch for learning and architectural understanding.
 ```
 
-### 28. `.gitignore` — Git Ignore Rules 🔄
+### 34. `.gitignore` — Git Ignore Rules 🔄
 
-**ဘာလုပ်သလဲ:** Python caches, virtual environments, coverage files, mypy caches နှင့် local learning journey notes များကို version control မှ exclude လုပ်ထားသည်။
+**ဘာလုပ်သလဲ:** Git repository ထဲသို့ commit မလုပ်သင့်သော virtual environment, cache, `.env` secrets များကို ဖယ်ထုတ်ပေးသည်။
 
-```text
+```gitignore
 # Python
 __pycache__/
 *.py[cod]
@@ -1907,22 +2315,11 @@ Agentic-AI-Learning-Journey.md
 
 ---
 
-## 🧪 PART 3: COMPLETE TEST SUITE (`tests/`) — ALL 37 TESTS
+## 🧪 PART 3: COMPLETE TEST SUITE (`tests/`) — ALL 67 TESTS PASSING
 
-> Test suite တစ်ခုလုံးတွင် Unit tests, Integration tests နှင့် Multi-step Error Recovery experiments များ စုစုပေါင်း **37 ခု** ပါဝင်ပြီး အားလုံး **100% PASSING** ဖြစ်သည်။
-### 29. `tests/test_tools.py` — Tool & Registry Unit Tests (7 tests) 🔄
+### 35. `tests/test_tools.py` — Tool & Registry Unit Tests (7 tests) 🔄
 
-**ဘာလုပ်သလဲ:** `ListFilesTool` နှင့် `ToolRegistry` တို့၏ အခြေခံ features များကို စစ်ဆေးသော tests ဖြစ်သည်။ `ListFilesTool(Workspace(Path.cwd()))` ဖြင့် workspace-aware အဖြစ် update လုပ်ထားသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_list_files_tool_lists_directory` | Directory အတွင်းရှိ files များကို list အဖြစ် ပြန်ပေးခြင်း |
-| `test_list_files_tool_definition` | Tool metadata definition (name, description, schema) မှန်ကန်ခြင်း |
-| `test_registry_registers_and_resolves_tool` | Tool register လုပ်ခြင်းနှင့် name ဖြင့် ပြန်လည်ရယူခြင်း |
-| `test_registry_exposes_tool_definitions` | Definitions list ထုတ်ပေးနိုင်ခြင်း |
-| `test_registry_rejects_duplicate_tool` | နာမည်တူ tool ထပ် register လုပ်ပါက ValueError တက်ခြင်း |
-| `test_registry_rejects_unknown_tool` | မရှိသော tool ကို get လုပ်ပါက KeyError တက်ခြင်း |
-| `test_tool_call_representation` | `ToolCall` dataclass ၏ attributes များ မှန်ကန်ခြင်း |
+**ဘာလုပ်သလဲ:** `ToolRegistry` ၏ tool registration, duplicate rejection, lookup, empty handling နှင့် `ListFilesTool` ၏ root/subdirectory listing များကို test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2016,14 +2413,9 @@ def test_tool_call_representation() -> None:
     }
 ```
 
-### 30. `tests/test_llm_client.py` — Fake LLM Client Unit Tests (2 tests)
+### 36. `tests/test_llm_client.py` — Fake LLM Client Unit Tests (2 tests)
 
-**ဘာလုပ်သလဲ:** `FakeLLMClient` ၏ basic ask response ပြန်ပေးခြင်းနှင့် prompt logging စနစ်များကို စစ်ဆေးသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_fake_llm_returns_configured_response` | Configured response စာသားအတိုင်း ပြန်လည်ရရှိခြင်း |
-| `test_fake_llm_records_prompt` | ပေးပို့လိုက်သော system prompt နှင့် user prompt များကို calls list တွင် မှတ်တမ်းတင်ထားခြင်း |
+**ဘာလုပ်သလဲ:** `FakeLLMClient` ၏ deterministic prompt-response interface နှင့် call history tracking ကို test လုပ်သည်။
 
 ```python
 from app.llm import FakeLLMClient
@@ -2060,9 +2452,9 @@ def test_fake_llm_records_prompt() -> None:
     }
 ```
 
-### 31. `tests/test_openai_tools.py` — OpenAI Tool Schema Conversion Test (1 test) 🔄
+### 37. `tests/test_openai_tools.py` — OpenAI Tool Schema Conversion Test (1 test)
 
-**ဘာလုပ်သလဲ:** `to_openai_tool()` adapter function သည် `Workspace`-aware tool object အား OpenAI specification သို့ မှန်ကန်စွာ convert လုပ်နိုင်ခြင်း ရှိမရှိ စစ်ဆေးသည်။
+**ဘာလုပ်သလဲ:** `to_openai_tool()` adapter function သည် runtime tool specifications များကို OpenAI function schema သို့ တိကျစွာ convert လုပ်နိုင်ခြင်း ရှိမရှိ test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2084,9 +2476,9 @@ def test_tool_is_converted_to_openai_function() -> None:
     assert result["strict"] is True
 ```
 
-### 32. `tests/test_single_iteration.py` — Single Iteration Loop Tests (2 tests) 🔄
+### 38. `tests/test_single_iteration.py` — Single Iteration Loop Tests (2 tests)
 
-**ဘာလုပ်သလဲ:** Day 3 Single iteration loop ၏ အလုပ်လုပ်ပုံကို စစ်ဆေးသည်။ Tool call မလိုသော prompt နှင့် tool call လိုအပ်သော prompt နှစ်မျိုးစလုံးကို fake LLM ဖြင့် စမ်းသပ်ထားသည်။
+**ဘာလုပ်သလဲ:** Day 3 single iteration flow (LLM → Tool → LLM response) နှင့် tool မပါသော plain response များကို test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2171,16 +2563,9 @@ def test_single_iteration_executes_tool_and_returns_final_response() -> None:
     assert conversation[2]["call_id"] == "call_123"
 ```
 
-### 33. `tests/test_agent_state.py` — Agent State Machine Tests (4 tests) 🆕
+### 39. `tests/test_agent_state.py` — Agent State Machine Tests (4 tests) 🆕
 
-**ဘာလုပ်သလဲ:** `AgentState` ၏ default values, `COMPLETED`, `FAILED`, `MAX_ITERATIONS` states များနှင့် `is_finished` property ၏ exit condition logic များကို စစ်ဆေးသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_agent_state_defaults` | Default state တွင် status = RUNNING, iteration = 0, is_finished = False ဖြစ်ခြင်း |
-| `test_agent_state_completed` | Status = COMPLETED ဖြစ်ပါက is_finished = True ဖြစ်ခြင်း |
-| `test_agent_state_failed` | Status = FAILED ဖြစ်ပါက error message ပါရှိပြီး is_finished = True ဖြစ်ခြင်း |
-| `test_agent_state_max_iterations` | Status = MAX_ITERATIONS ဖြစ်ပါက is_finished = True ဖြစ်ခြင်း |
+**ဘာလုပ်သလဲ:** `AgentState` ၏ default initialization, `is_finished` status transitions, failure states နှင့် execution history integration များကို test လုပ်သည်။
 
 ```python
 from app.agent import AgentState, AgentStatus
@@ -2227,16 +2612,9 @@ def test_agent_state_max_iterations():
     assert state.iteration == 5
 ```
 
-### 34. `tests/test_agent_loop.py` — Multi-Iteration Agent Loop Tests (4 tests) 🔄
+### 40. `tests/test_agent_loop.py` — Multi-Iteration Agent Loop Tests (4 tests) 🔄
 
-**ဘာလုပ်သလဲ:** Multi-turn `AgentLoop` ၏ orchestration logic ကို စစ်ဆေးသည်။ `_make_loop()` helper တွင် `Workspace`, `ListFilesTool`, `ReadFileTool`, `SearchTextTool` ၃ ခုစလုံး ပါဝင်အောင် update ပြုလုပ်ထားသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_agent_loop_completes_after_tool_call` | Iteration 0 တွင် tool call → Iteration 1 တွင် final answer ရရှိကာ COMPLETED ဖြစ်ခြင်း |
-| `test_agent_loop_stops_at_max_iterations` | အမြဲတမ်း tool call ခေါ်နေပါက max_iterations တွင် infinite loop မဖြစ်ဘဲ ရပ်တန့်ခြင်း |
-| `test_agent_loop_preserves_conversation` | User prompt, function_call, function_call_output message flow အပြည့်အစုံ conversation ထဲတွင် ရှိနေခြင်း |
-| `test_agent_loop_records_tool_execution` | Tool execution တိုင်းကို `state.history` ထဲသို့ `ExecutionRecord` အဖြစ် duration ပါ မှတ်တမ်းတင်ခြင်း |
+**ဘာလုပ်သလဲ:** Multi-turn loop ၏ happy path, max iteration guard, conversation history continuity နှင့် tool result injection များကို test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2470,15 +2848,9 @@ def test_agent_loop_records_tool_execution() -> None:
     assert record.duration_ms >= 0
 ```
 
-### 35. `tests/test_workspace.py` — Workspace Security Boundary Tests (3 tests) 🆕
+### 41. `tests/test_workspace.py` — Workspace Security Boundary Tests (3 tests) 🆕
 
-**ဘာလုပ်သလဲ:** `Workspace` ၏ path resolution နှင့် Path Traversal attack (`../../secret.txt`) တားဆီးမှုများကို စစ်ဆေးသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_workspace_resolves_relative_path` | Workspace relative path ကို root အောက်တွင် မှန်ကန်စွာ resolve လုပ်ခြင်း |
-| `test_workspace_allows_nested_path` | Subdirectories အဆင့်ဆင့်ပါသော nested path များကို ခွင့်ပြုခြင်း |
-| `test_workspace_blocks_path_traversal` | Workspace root ပြင်ပသို့ ထွက်သော `../../secret.txt` ကို `PermissionError` ဖြင့် block လုပ်ခြင်း |
+**ဘာလုပ်သလဲ:** Path resolution, subpath resolution နှင့် Path Traversal (`../../secret.txt`) attacks များကို `PermissionError` ဖြင့် အောင်မြင်စွာ block နိုင်ခြင်း ရှိမရှိ test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2530,16 +2902,9 @@ def test_workspace_blocks_path_traversal(
         )
 ```
 
-### 36. `tests/test_file_tools.py` — File Tools Integration Tests (4 tests) 🆕
+### 42. `tests/test_file_tools.py` — File Tools Integration Tests (4 tests) 🆕
 
-**ဘာလုပ်သလဲ:** `ListFilesTool`, `ReadFileTool`, `SearchTextTool` ၃ ခုစလုံး၏ workspace-aware integration အလုပ်လုပ်ပုံကို စစ်ဆေးသည်။
-
-| Test Function | စစ်ဆေးချက် |
-|---|---|
-| `test_list_files_uses_workspace` | Workspace-relative path မှ files များကို list လုပ်ပေးခြင်း |
-| `test_read_file_returns_content` | ဖိုင် content, path နှင့် size_bytes များကို မှန်ကန်စွာ ဖတ်ရှုပေးခြင်း |
-| `test_read_file_rejects_large_file` | သတ်မှတ်ထားသော `max_bytes` ထက်ကျော်လွန်ပါက `ValueError` ဖြင့် ငြင်းပယ်ခြင်း |
-| `test_search_text_returns_matches` | Text pattern ကို ရှာဖွေပြီး matching file path, line number, line text ပြန်ပေးခြင်း |
+**ဘာလုပ်သလဲ:** `ListFilesTool`, `ReadFileTool`, `SearchTextTool` ၃ ခုစလုံးသည် Workspace security boundary နှင့် integration ကောင်းမွန်စွာ အလုပ်လုပ်ခြင်း ရှိမရှိ test လုပ်သည်။
 
 ```python
 from pathlib import Path
@@ -2662,25 +3027,14 @@ def test_search_text_returns_matches(
     ]
 ```
 
-### 37. `tests/test_error_recovery.py` — Day 5 Error Recovery & Security Experiments (13 tests) 🆕
+### 43. `tests/test_error_recovery.py` — Day 5 Error Recovery & Security Experiments (13 tests) 🆕
 
-**ဘာလုပ်သလဲ:** Agentic AI စနစ်၏ အဓိက experiment ၅ ခုဖြစ်သော Tool Error Recovery, Path Traversal Block, Huge Output Context Budgeting, Realistic Exploration Smoke Test နှင့် Max Iterations Protection တို့ကို စစ်ဆေးသော tests ၁၃ ခု ဖြစ်သည်။
-
-| Experiment Class | Test Function | အဓိက စစ်ဆေးချက် |
-|---|---|---|
-| **Exp 1: Tool Error Recovery** | `test_agent_continues_after_tool_error` | မရှိသော file ဖတ်မိ၍ tool error တက်သော်လည်း agent crash မဖြစ်ဘဲ recover လုပ်နိုင်ခြင်း |
-| | `test_failed_tool_recorded_in_history` | ကျရှုံးသော tool call ကို `history.records()[0].success is False` ဟု မှတ်တမ်းတင်ခြင်း |
-| | `test_error_observation_appended_to_conversation` | Error message သည် observation အနေဖြင့် LLM ဆီသို့ function_call_output ရောက်ရှိသွားခြင်း |
-| | `test_hallucinated_tool_name_recovery` | မရှိသော tool နာမည် (e.g. repo_browser.list_files) ခေါ်မိသော်လည်း error observation ရရှိပြီး valid tool သို့ self-correct လုပ်နိုင်ခြင်း |
-| | `test_invalid_file_recovery` | Tool name မှန်သော်လည်း argument/path မှားယွင်းခြင်း (`missing.py`) ကို recover လုပ်၍ `list_files` ဖြင့် ရှာဖွေနိုင်ခြင်း |
-| **Exp 2: Path Traversal** | `test_path_traversal_blocked_and_agent_survives` | `../../secret.txt` ခေါ်သော်လည်း agent process ရှင်သန်ပြီး COMPLETED ဖြစ်ခြင်း |
-| | `test_path_traversal_recorded_as_failure` | History တွင် `"escapes workspace"` error ဖြင့် failure အဖြစ် မှတ်တမ်းတင်ခြင်း |
-| | `test_path_traversal_error_forwarded_to_llm` | PermissionError ကို LLM ထံ observation အဖြစ် ပို့ဆောင်ပေးခြင်း |
-| **Exp 3: Huge Output** | `test_oversized_file_produces_tool_failure` | `max_bytes` ကျော်သောဖိုင်ကို ဖတ်ရာတွင် tool failure အဖြစ် သတ်မှတ်ခြင်း |
-| | `test_oversized_file_error_forwarded_to_llm` | Context budget error observation အား LLM ထံ ပြန်ပို့ခြင်း |
-| **Exp 4: Realistic Exploration** | `test_realistic_exploration_sequence` | `list_files` → `read_file` → final answer အဆင့်ဆင့် exploration အောင်မြင်ခြင်း |
-| | `test_history_json_is_serialisable` | `state.history.to_json()` သည် valid JSON ထုတ်ပေးပြီး duration_ms ပါဝင်ခြင်း |
-| **Exp 5: Max Iterations Protection** | `test_max_iterations_stops_infinite_tool_loop` | Model က အဆုံးမရှိ loop ဖြစ်နေပါက max_iterations (e.g. 3) တွင် `MAX_ITERATIONS` status ဖြင့် safely ရပ်တန့်ခြင်း |
+**ဘာလုပ်သလဲ:**
+- Exp 1: Tool Error Recovery (Missing file failure ဖြစ်သော်လည်း agent မသေဘဲ self-heal လုပ်ခြင်း)
+- Exp 2: Path Traversal Security Defense (PermissionError တက်သော်လည်း agent loop အသက်ရှင်ခြင်း)
+- Exp 3: Huge Output Context Budget (max_bytes ကျော်လွန်မှု failure အား observation အဖြစ် ရယူခြင်း)
+- Exp 4: Realistic Agent Smoke Test (list_files → read_file → final answer flow)
+- Exp 5: Max Iterations Infinite Loop Protection (အဆုံးမရှိ tool call နေပါက MAX_ITERATIONS ဖြင့် safe termination)
 
 ```python
 """
@@ -3339,22 +3693,397 @@ class TestExperimentMaxIterationsProtection:
         assert len(state.history) == 3
 ```
 
+### 44. `tests/test_decision.py` — Decision Contract & Pydantic Validation Tests (9 tests) 🆕
+
+**ဘာလုပ်သလဲ:**
+- `tool_call` decision တည်ဆောက်နိုင်ခြင်း
+- `final_answer` decision တည်ဆောက်နိုင်ခြင်း
+- `tool_call` တွင် `tool_name` မပါပါက ValidationError တက်ခြင်း
+- `tool_call` တွင် `arguments` မပါပါက ValidationError တက်ခြင်း
+- `final_answer` တွင် `final_answer` မပါပါက ValidationError တက်ခြင်း
+- `tool_call` တွင် `final_answer` ပါလာပါက ValidationError တက်ခြင်း (Mutual Exclusivity)
+- `final_answer` တွင် `tool_name` ပါလာပါက ValidationError တက်ခြင်း (Mutual Exclusivity)
+- Extra unexpected fields (`confidence: 0.99`) ထည့်ပါက `extra="forbid"` ဖြင့် Reject ဖြစ်ခြင်း
+- JSON schema အောင်မြင်စွာ generate လုပ်နိုင်ခြင်း
+
+```python
+import pytest
+from pydantic import ValidationError
+
+from app.agent.decision import Decision, DecisionAction
+
+
+def test_tool_call_decision_is_valid() -> None:
+    decision = Decision(
+        action=DecisionAction.TOOL_CALL,
+        tool_name="read_file",
+        arguments={
+            "path": "app/agent/loop.py",
+        },
+    )
+
+    assert decision.action == DecisionAction.TOOL_CALL
+    assert decision.tool_name == "read_file"
+    assert decision.arguments == {
+        "path": "app/agent/loop.py",
+    }
+
+
+def test_final_answer_decision_is_valid() -> None:
+    decision = Decision(
+        action=DecisionAction.FINAL_ANSWER,
+        final_answer="The file is implemented correctly.",
+    )
+
+    assert decision.action == DecisionAction.FINAL_ANSWER
+    assert decision.final_answer == (
+        "The file is implemented correctly."
+    )
+
+
+def test_tool_call_requires_tool_name() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.TOOL_CALL,
+            arguments={},
+        )
+
+
+def test_tool_call_requires_arguments() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.TOOL_CALL,
+            tool_name="read_file",
+        )
+
+
+def test_final_answer_requires_answer() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.FINAL_ANSWER,
+        )
+
+
+def test_tool_call_cannot_have_final_answer() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.TOOL_CALL,
+            tool_name="read_file",
+            arguments={},
+            final_answer="This should not exist.",
+        )
+
+
+def test_final_answer_cannot_have_tool_name() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.FINAL_ANSWER,
+            final_answer="Done.",
+            tool_name="read_file",
+        )
+
+
+def test_unknown_fields_are_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Decision(
+            action=DecisionAction.FINAL_ANSWER,
+            final_answer="Done.",
+            confidence=0.99,
+        )
+
+
+def test_json_schema_can_be_generated() -> None:
+    schema = Decision.model_json_schema()
+
+    assert schema["type"] == "object"
+    assert "action" in schema["properties"]
+    assert "tool_name" in schema["properties"]
+    assert "arguments" in schema["properties"]
+    assert "final_answer" in schema["properties"]
+```
+
+### 45. `tests/test_structured_output.py` — Structured Output Parsing & Validation Tests (6 tests) 🆕
+
+**ဘာလုပ်သလဲ:**
+- `parse_prompt_json` ဖြင့် tool call parse လုပ်နိုင်ခြင်း
+- `parse_prompt_json` ဖြင့် final answer parse လုပ်နိုင်ခြင်း
+- Invalid JSON string ဖြစ်ပါက `StructuredOutputError` ("Invalid JSON") တက်ခြင်း
+- Invalid schema ဖြစ်ပါက `StructuredOutputError` ("Decision schema validation failed") တက်ခြင်း
+- Provider dictionary payload အား `validate_structured_payload` ဖြင့် validate လုပ်နိုင်ခြင်း
+- Invalid provider payload အား `StructuredOutputError` ဖြင့် Reject လုပ်ခြင်း
+
+```python
+import pytest
+
+from app.agent.decision import DecisionAction
+from app.agent.structured_output import (
+    StructuredOutputError,
+    parse_prompt_json,
+    validate_structured_payload,
+)
+
+
+def test_prompt_json_parses_tool_call() -> None:
+    raw_output = """
+    {
+        "action": "tool_call",
+        "tool_name": "read_file",
+        "arguments": {
+            "path": "app/agent/loop.py"
+        }
+    }
+    """
+
+    decision = parse_prompt_json(raw_output)
+
+    assert decision.action == DecisionAction.TOOL_CALL
+    assert decision.tool_name == "read_file"
+
+
+def test_prompt_json_parses_final_answer() -> None:
+    raw_output = """
+    {
+        "action": "final_answer",
+        "final_answer": "The repository uses an AgentLoop."
+    }
+    """
+
+    decision = parse_prompt_json(raw_output)
+
+    assert decision.action == DecisionAction.FINAL_ANSWER
+    assert decision.final_answer == (
+        "The repository uses an AgentLoop."
+    )
+
+
+def test_prompt_json_rejects_invalid_json() -> None:
+    raw_output = """
+    {
+        "action": "tool_call",
+        "tool_name": "read_file"
+    """
+
+    with pytest.raises(StructuredOutputError, match="Invalid JSON"):
+        parse_prompt_json(raw_output)
+
+
+def test_prompt_json_rejects_invalid_schema() -> None:
+    raw_output = """
+    {
+        "action": "something_invalid"
+    }
+    """
+
+    with pytest.raises(
+        StructuredOutputError,
+        match="Decision schema validation failed",
+    ):
+        parse_prompt_json(raw_output)
+
+
+def test_structured_payload_is_validated() -> None:
+    payload = {
+        "action": "tool_call",
+        "tool_name": "search_text",
+        "arguments": {
+            "query": "AgentLoop",
+        },
+    }
+
+    decision = validate_structured_payload(payload)
+
+    assert decision.action == DecisionAction.TOOL_CALL
+    assert decision.tool_name == "search_text"
+
+
+def test_structured_payload_rejects_invalid_payload() -> None:
+    payload = {
+        "action": "tool_call",
+    }
+
+    with pytest.raises(
+        StructuredOutputError,
+        match="Decision schema validation failed",
+    ):
+        validate_structured_payload(payload)
+```
+
+### 46. `tests/test_tools_schemas.py` — Pydantic Tool Argument Schemas Tests (11 tests) 🆕
+
+**ဘာလုပ်သလဲ:**
+- `ListFilesArgs`: default path `""` စစ်ဆေးခြင်း
+- `ListFilesArgs`: custom path လက်ခံခြင်း
+- `ReadFileArgs`: valid arguments လက်ခံခြင်း
+- `ReadFileArgs`: empty path ကို field_validator ဖြင့် reject လုပ်ခြင်း
+- `ReadFileArgs`: zero max_bytes (`gt=0`) ကို reject လုပ်ခြင်း
+- `ReadFileArgs`: negative max_bytes ကို reject လုပ်ခြင်း
+- `ReadFileArgs`: unexpected extra fields ကို `extra="forbid"` ဖြင့် reject လုပ်ခြင်း
+- `SearchTextArgs`: valid arguments လက်ခံခြင်း
+- `SearchTextArgs`: empty query ကို field_validator ဖြင့် reject လုပ်ခြင်း
+- `SearchTextArgs`: invalid max_results (`gt=0`) ကို reject လုပ်ခြင်း
+- `SearchTextArgs`: invalid file budget ကို reject လုပ်ခြင်း
+
+```python
+import pytest
+from pydantic import ValidationError
+
+from app.tools.schemas import (
+    ListFilesArgs,
+    ReadFileArgs,
+    SearchTextArgs,
+)
+
+
+def test_list_files_args_defaults_to_workspace_root() -> None:
+    args = ListFilesArgs()
+
+    assert args.path == ""
+
+
+def test_list_files_args_accepts_path() -> None:
+    args = ListFilesArgs(
+        path="app",
+    )
+
+    assert args.path == "app"
+
+
+def test_read_file_args_accepts_valid_arguments() -> None:
+    args = ReadFileArgs(
+        path="app/main.py",
+        max_bytes=10_000,
+    )
+
+    assert args.path == "app/main.py"
+    assert args.max_bytes == 10_000
+
+
+def test_read_file_args_rejects_empty_path() -> None:
+    with pytest.raises(ValidationError):
+        ReadFileArgs(
+            path="",
+        )
+
+
+def test_read_file_args_rejects_zero_max_bytes() -> None:
+    with pytest.raises(ValidationError):
+        ReadFileArgs(
+            path="app/main.py",
+            max_bytes=0,
+        )
+
+
+def test_read_file_args_rejects_negative_max_bytes() -> None:
+    with pytest.raises(ValidationError):
+        ReadFileArgs(
+            path="app/main.py",
+            max_bytes=-1,
+        )
+
+
+def test_read_file_args_rejects_unknown_fields() -> None:
+    with pytest.raises(ValidationError):
+        ReadFileArgs(
+            path="app/main.py",
+            unexpected=True,
+        )
+
+
+def test_search_text_args_accepts_valid_arguments() -> None:
+    args = SearchTextArgs(
+        query="AgentLoop",
+        path="app",
+        max_results=20,
+        max_file_bytes=50_000,
+    )
+
+    assert args.query == "AgentLoop"
+    assert args.path == "app"
+    assert args.max_results == 20
+    assert args.max_file_bytes == 50_000
+
+
+def test_search_text_args_rejects_empty_query() -> None:
+    with pytest.raises(ValidationError):
+        SearchTextArgs(
+            query="",
+        )
+
+
+def test_search_text_args_rejects_invalid_max_results() -> None:
+    with pytest.raises(ValidationError):
+        SearchTextArgs(
+            query="AgentLoop",
+            max_results=0,
+        )
+
+
+def test_search_text_args_rejects_invalid_file_budget() -> None:
+    with pytest.raises(ValidationError):
+        SearchTextArgs(
+            query="AgentLoop",
+            max_file_bytes=-1,
+        )
+```
+
+### 47. `tests/test_validation_errors.py` — Structured Validation Error Observation Tests (1 test) 🆕
+
+**ဘာလုပ်သလဲ:**
+- Pydantic `ValidationError` ဖြစ်ပေါ်သည့်အခါ `format_validation_error()` helper က compact observation dictionary (`success: False`, `error_type: "tool_argument_validation"`, `tool_name`, `errors: [{"field": "max_bytes", ...}]`) အဖြစ် ပြောင်းလဲပေးနိုင်ခြင်း ရှိမရှိ စစ်ဆေးသည်။
+
+```python
+from pydantic import ValidationError
+
+from app.agent.validation_errors import (
+    format_validation_error,
+)
+from app.tools.schemas import ReadFileArgs
+
+
+def test_validation_error_becomes_structured_observation() -> None:
+    try:
+        ReadFileArgs(
+            path="app/main.py",
+            max_bytes=-1,
+        )
+    except ValidationError as error:
+        observation = format_validation_error(
+            "read_file",
+            error,
+        )
+
+    assert observation["success"] is False
+    assert observation["error_type"] == (
+        "tool_argument_validation"
+    )
+    assert observation["tool_name"] == "read_file"
+
+    errors = observation["errors"]
+
+    assert len(errors) == 1
+    assert errors[0]["field"] == "max_bytes"
+```
+
 ---
 
 ## 🔬 ERROR RECOVERY TAXONOMY & CONTEXT ENGINEERING
 
-### Recovery Failure Types (မတူညီသော Error အမျိုးအစား ၂ မျိုး)
-1. **Experiment 1A (Wrong Tool / Hallucinated Tool Name):**
+### Recovery Failure Types (မတူညီသော Error အမျိုးအစား ၃ မျိုး)
+1. **Tool Name Hallucination (Experiment 1A):**
    - ဥပမာ: `repo_browser.list_files`
    - Failure: `ToolRegistry.get()` မှ `KeyError` တက်သည်။
    - Recovery: Tool name ကို registry ထဲရှိ valid tool နာမည်အဖြစ် ပြောင်းလဲခေါ်ဆိုသည်။
-2. **Experiment 1B (Correct Tool, Wrong Input / Invalid Path):**
+2. **Schema / Argument Validation Error (Week 2):**
+   - ဥပမာ: `read_file(path="", max_bytes=-1)`
+   - Failure: Pydantic `ValidationError` ဖြစ်ပြီး `format_validation_error()` မှ structured observation ထုတ်ပေးသည်။
+   - Recovery: Argument boundary အမှားကို သိရှိပြီး မှန်ကန်သော type/bounds ဖြင့် ပြန်လည်ပြင်ဆင်ခေါ်ဆိုသည်။
+3. **Semantic / Environmental Error (Experiment 1B):**
    - ဥပမာ: `read_file("missing.py")`
    - Failure: `ReadFileTool.run()` မှ `FileNotFoundError` တက်သည်။
    - Recovery: Path အမှားကို နားလည်ပြီး `list_files(".")` ဖြင့် directory ကို အရင်စူးစမ်းကာ မှန်ကန်သော ဖိုင်လမ်းကြောင်းကို ရှာဖွေသည်။
 
 ### Context Engineering Preview
-> **အဓိက သဘောတရား:** `read_file` failure ဖြစ်ချိန်တွင် `AgentLoop` က "File မတွေ့ဘူး → `list_files` သုံးလိုက်" ဟု ဘယ်တော့မှ မဆုံးဖြတ်ပါ။ `AgentLoop` သည် `error → observation → conversation` သို့ သယ်ဆောင်ပေးရုံသာ လုပ်သည်။ ထို observation ကို ဖတ်ရှုပြီး **Re-plan လုပ်ကာ `list_files` ကို ရွေးချယ်သူမှာ LLM သာ ဖြစ်သည်**။
+> **အဓိက သဘောတရား:** `read_file` failure သို့မဟုတ် validation error ဖြစ်ချိန်တွင် `AgentLoop` က "File မတွေ့ဘူး → `list_files` သုံးလိုက်" ဟု ဘယ်တော့မှ မဆုံးဖြတ်ပါ။ `AgentLoop` သည် `error → observation → conversation` သို့ သယ်ဆောင်ပေးရုံသာ လုပ်သည်။ ထို observation ကို ဖတ်ရှုပြီး **Re-plan လုပ်ကာ self-correct လုပ်သူမှာ LLM သာ ဖြစ်သည်**။
 > ထို့ကြောင့် *"Conversation ထဲတွင် မည်သည့် context နှင့် observation format မျိုး ထည့်သွင်းပေးထားလျှင် LLM က အမှားကို အကောင်းဆုံး recover လုပ်နိုင်မည်နည်း?"* ဆိုသည့် မေးခွန်းသည် **Context Engineering** ၏ အခြေခံအုတ်မြစ် ဖြစ်သည်။
 
 ---
@@ -3363,6 +4092,7 @@ class TestExperimentMaxIterationsProtection:
 
 ### Key Conceptual Distinctions
 - **Tool Failure ≠ Agent Failure**: Tool တစ်ခု error တက်ခြင်းသည် Agent run ပျက်စီးခြင်း မဟုတ်ပါ။ အမှန်စင်စစ် LLM အတွက် observation အသစ်ရရှိခြင်း ဖြစ်သည်။
+- **Validation Error ≠ Tool Execution Error**: Validation error သည် Tool စတင်မ run မီ runtime boundary ၌ စစ်ဆေးတားဆီးခြင်းဖြစ်ပြီး၊ Tool execution error သည် tool run နေစဉ် OS/Filesystem မှ တက်လာသော error ဖြစ်သည်။
 - **Max Iteration ≠ Tool Failure**: Tool execution အားလုံးသည် `success=True` ဖြစ်နိုင်သော်လည်း (ဥပမာ `list_files` ကို အကြိမ်ကြိမ် အောင်မြင်စွာ run နေသော်လည်း) LLM က final answer မပေးပါက `max_iterations` guard ကြောင့် loop ရပ်တန့်သွားသည်။ ဤအခြေအနေတွင် agent status သည် `FAILED` မဟုတ်ဘဲ `MAX_ITERATIONS` ဖြစ်သည်။
 
 ### AgentStatus Runtime Lifecycle
@@ -3392,36 +4122,45 @@ class TestExperimentMaxIterationsProtection:
 | Pattern | Codebase အသုံးချမှု | အကျိုးကျေးဇူး |
 |---|---|---|
 | **Abstract Base Class (ABC)** | `LLMClient`, `Tool` | Provider သို့မဟုတ် Tool အသစ်များကို standard interface အတိုင်း အလွယ်တကူ swap ပြုလုပ်နိုင်ခြင်း |
-| **Protocol (Duck Typing)** | `ToolCallingClient` | Provider independence (ADR-0001) အရ runtime အား OpenAI SDK နှင့် တိုက်ရိုက်မချိတ်ဆက်စေခြင်း |
+| **Protocol (Duck Typing)** | `ToolCallingClient`, `StructuredDecisionClient` | Provider independence (ADR-0001) အရ runtime အား external SDKs များနှင့် တိုက်ရိုက်မချိတ်ဆက်စေခြင်း |
+| **Pydantic Strict Boundary** | `Decision`, `ToolArgs` (`extra="forbid"`) | Untrusted LLM output ကို strict schema ဖြင့် စစ်ဆေးပြီး unexpected fields နှင့် invalid types များကို reject လုပ်ခြင်း |
+| **Two-Level Validation Pipeline** | `Decision` (Intent) + `ToolArgs` (Arguments) | Agent-level ဆုံးဖြတ်ချက်နှင့် Tool-level inputs များကို တာဝန်ခွဲခြားစစ်ဆေးခြင်း |
 | **Dependency Injection** | `ToolExecutor(registry)`, `AgentLoop(client, registry, executor)` | Unit testing တွင် fake dependencies များဖြင့် swap လုပ်ရ လွယ်ကူစေခြင်း |
 | **Frozen Dataclass** | `ToolCall`, `ToolExecution`, `ExecutionRecord` | Runtime အချက်အလက်များ မတော်တဆ ပြင်ဆင်မခံရစေရန် Immutability အာမခံခြင်း |
 | **Security Boundary Pattern** | `Workspace` | Path traversal attacks များကို tool တိုင်းတွင် duplicate မစစ်ဘဲ single boundary ဖြင့် ဗဟိုချုပ်ကိုင်ခြင်း |
 | **Error as Observation** | `ToolExecutor` + `AgentLoop` | Exception ကြောင့် agent မသေစေဘဲ failure အား observation အဖြစ် LLM ထံ ပြန်ပို့၍ self-heal စေခြင်း |
+| **Structured Error Observation** | `format_validation_error()` | Traceback အစား compact JSON observation ပို့ပေးသဖြင့် LLM က context token မကုန်ဘဲ self-correct လွယ်ကူခြင်း |
 | **Runtime Telemetry** | `ExecutionHistory` + `ExecutionRecord` | Tool execution ကြာချိန် (ms)၊ arguments နှင့် results များကို JSON serialize လုပ်၍ audit log ထားရှိနိုင်ခြင်း |
 | **Deterministic Simulation** | `FakeLLMClient.response_sequence` | Network latency သို့မဟုတ် API cost မရှိဘဲ multi-step agent flow များကို deterministically test နိုင်ခြင်း |
 
 ---
 
-## 📈 COMPLETE TEST SUITE VERIFICATION (40/40 PASSING)
+## 📈 COMPLETE TEST SUITE VERIFICATION (67/67 PASSING)
 
 ```
 ============================= test session starts =============================
-platform win32 -- Python 3.12.x, pytest-9.x.x
-rootdir: c:\Users\uaung\aung_sann_phyo\person\agentic-ai-learning\agent-runtime
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\uaung\aung_sann_phyo\person\agentic-ai-learning\agent-runtime
 configfile: pyproject.toml
 testpaths: tests
+plugins: anyio-4.15.1
+collected 67 items
 
-tests/test_agent_loop.py ....                                            [ 10%]
-tests/test_agent_state.py ....                                           [ 20%]
-tests/test_error_recovery.py .............                               [ 52%]
-tests/test_file_tools.py ....                                            [ 62%]
-tests/test_llm_client.py ..                                              [ 67%]
-tests/test_openai_tools.py .                                             [ 70%]
-tests/test_single_iteration.py ..                                        [ 75%]
-tests/test_tools.py .......                                              [ 92%]
+tests/test_agent_loop.py ....                                            [  5%]
+tests/test_agent_state.py ....                                           [ 11%]
+tests/test_decision.py .........                                         [ 25%]
+tests/test_error_recovery.py .............                               [ 44%]
+tests/test_file_tools.py ....                                            [ 50%]
+tests/test_llm_client.py ..                                              [ 53%]
+tests/test_openai_tools.py .                                             [ 55%]
+tests/test_single_iteration.py ..                                        [ 58%]
+tests/test_structured_output.py ......                                   [ 67%]
+tests/test_tools.py .......                                              [ 77%]
+tests/test_tools_schemas.py ...........                                  [ 94%]
+tests/test_validation_errors.py .                                        [ 95%]
 tests/test_workspace.py ...                                              [100%]
 
-============================== 40 passed in 1.69s =============================
+============================== 67 passed in 1.55s ==============================
 ```
 
 ---
@@ -3443,4 +4182,4 @@ Real model (Groq `openai/gpt-oss-120b`) ဖြင့် live run စမ်းသ
 
 ---
 
-*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (37 Files, 40 Tests)*
+*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (44 Files, 67 Tests, 100% Passing)*
