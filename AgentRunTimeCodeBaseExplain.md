@@ -3,7 +3,7 @@
 
 ---
 
-## 🗂️ Complete Project Structure (Week 2 Day 2 Updated)
+## 🗂️ Complete Project Structure (Week 2 Day 4 Updated)
 
 ```
 agent-runtime/
@@ -11,15 +11,20 @@ agent-runtime/
 │   ├── __init__.py                  ← Package marker
 │   ├── main.py                      ← 🔄 Entry point (AgentLoop + Workspace + 3 Tools + History JSON)
 │   ├── agent/
-│   │   ├── __init__.py              ← 🔄 Agent module exports (AgentLoop, AgentState, Decision, StructuredOutput, ValidationErrors)
-│   │   ├── decision.py              ← 🆕 Machine-verifiable Decision contract (DecisionAction, Decision Pydantic model)
-│   │   ├── decision_schema.py       ← 🆕 JSON Schema generator for Decision (decision_json_schema)
+│   │   ├── __init__.py              ← 🔄 Agent module exports (AgentLoop, AgentState, Decision, StructuredOutput, ValidationErrors, Budget, Clock, LoopGuard, DecisionRecovery)
+│   │   ├── budget.py                ← 🆕 Runtime budget & wall-clock tracker (RuntimeBudget, BudgetTracker)
+│   │   ├── clock.py                 ← 🆕 Testable clock abstraction (Clock Protocol, MonotonicClock)
+│   │   ├── decision.py              ← Machine-verifiable Decision contract (DecisionAction, Decision Pydantic model)
+│   │   ├── decision_recovery.py     ← 🆕 Structured-output error recovery (DecisionRecovery, error→observation)
+│   │   ├── decision_schema.py       ← JSON Schema generator for Decision (decision_json_schema)
 │   │   ├── history.py               ← Telemetry & Execution audit log (ExecutionRecord, ExecutionHistory)
-│   │   ├── loop.py                  ← Multi-iteration Orchestrator (ToolCallingClient Protocol, Error as Observation)
-│   │   ├── single_iteration.py      ← Day 3 Single iteration loop (foundation)
-│   │   ├── state.py                 ← Agent state machine (AgentState, AgentStatus, history tracking)
-│   │   ├── structured_output.py     ← 🆕 Structured output strategies (parse_prompt_json, validate_structured_payload)
-│   │   └── validation_errors.py     ← 🆕 Pydantic ValidationError formatter for LLM observations
+│   │   ├── loop.py                  ← 🔄 Multi-iteration Orchestrator (+BudgetTracker guard, +LoopGuard, guard-ordered run loop)
+│   │   ├── loop_guard.py            ← 🆕 Infinite-loop detector (LoopGuard, call_fingerprint)
+│   │   ├── retry.py                 ← Retry policy with exponential backoff (RetryPolicy, RetryDecision, ErrorKind)
+│   │   ├── single_iteration.py      ← Single iteration loop (foundation)
+│   │   ├── state.py                 ← 🔄 Agent state machine (+TIMEOUT, +LOOP_DETECTED statuses)
+│   │   ├── structured_output.py     ← Structured output strategies (parse_prompt_json, validate_structured_payload)
+│   │   └── validation_errors.py     ← 🔄 Pydantic ValidationError formatter (+format_structured_output_error)
 │   ├── llm/
 │   │   ├── __init__.py              ← LLM module exports
 │   │   ├── client.py                ← Abstract base interface (LLMClient)
@@ -42,16 +47,21 @@ agent-runtime/
 ├── tests/
 │   ├── test_agent_loop.py           ← Multi-iteration loop tests (Workspace-aware, 4 tests)
 │   ├── test_agent_state.py          ← AgentState & status unit tests (4 tests)
-│   ├── test_decision.py             ← 🆕 Decision schema & validation tests (9 tests)
+│   ├── test_budget.py               ← 🆕 RuntimeBudget & BudgetTracker tests (FakeClock, 3 tests)
+│   ├── test_decision.py             ← Decision schema & validation tests (9 tests)
+│   ├── test_decision_recovery.py    ← 🆕 DecisionRecovery error→observation tests (2 tests)
 │   ├── test_error_recovery.py       ← Day 5 Experiments (Error Recovery, Path Traversal, Huge Output, Smoke Test - 13 tests)
 │   ├── test_file_tools.py           ← Integration tests for Workspace file tools (4 tests)
 │   ├── test_llm_client.py           ← Fake LLM unit tests (2 tests)
+│   ├── test_loop_guard.py           ← 🆕 LoopGuard & call_fingerprint tests (4 tests)
 │   ├── test_openai_tools.py         ← OpenAI tool conversion test (Workspace-aware, 1 test)
+│   ├── test_retry.py                ← RetryPolicy exponential backoff tests (7 tests)
 │   ├── test_single_iteration.py     ← Single iteration loop tests (Workspace-aware, 2 tests)
-│   ├── test_structured_output.py    ← 🆕 Structured output parsing & validation tests (6 tests)
+│   ├── test_structured_output.py    ← Structured output parsing & validation tests (6 tests)
 │   ├── test_tools.py                ← Tool & Registry unit tests (Workspace-aware, 7 tests)
-│   ├── test_tools_schemas.py        ← 🆕 Pydantic tool argument schema validation tests (11 tests)
-│   ├── test_validation_errors.py    ← 🆕 Structured validation error observation tests (1 test)
+│   ├── test_tools_schemas.py        ← Pydantic tool argument schema validation tests (11 tests)
+│   ├── test_validation_errors.py    ← Structured validation error observation tests (1 test)
+│   ├── test_runtime_guards.py        ← 🆕 W2D4 Integration tests — Test A/B/C/D guard enforcement (4 tests)
 │   └── test_workspace.py            ← Workspace path resolution & security tests (3 tests)
 ├── docs/
 │   └── adr/
@@ -4182,4 +4192,896 @@ Real model (Groq `openai/gpt-oss-120b`) ဖြင့် live run စမ်းသ
 
 ---
 
-*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (44 Files, 67 Tests, 100% Passing)*
+
+---
+
+## 🆕 Week 2 Day 3 — New & Updated Files
+
+---
+
+### `app/agent/clock.py` — Testable Clock Abstraction
+
+```python
+from time import monotonic
+from typing import Protocol
+
+
+class Clock(Protocol):
+    def now(self) -> float:
+        ...
+
+
+class MonotonicClock:
+    def now(self) -> float:
+        return monotonic()
+```
+
+**Why:** Real wall-clock time ကို production မှာ `MonotonicClock` သုံးပြီး tests မှာ `FakeClock` inject လုပ်နိုင်အောင် Protocol abstraction ထည့်ထားတယ်။
+
+---
+
+### `app/agent/budget.py` — Runtime Budget & Wall-Clock Tracker
+
+```python
+from dataclasses import dataclass
+
+from .clock import Clock
+
+
+@dataclass(frozen=True)
+class RuntimeBudget:
+    max_iterations: int = 10
+    max_wall_time_seconds: float = 60.0
+    per_call_timeout_seconds: float = 30.0
+
+    def __post_init__(self) -> None:
+        if self.max_iterations < 1:
+            raise ValueError(
+                "max_iterations must be >= 1"
+            )
+
+        if self.max_wall_time_seconds <= 0:
+            raise ValueError(
+                "max_wall_time_seconds must be > 0"
+            )
+
+        if self.per_call_timeout_seconds <= 0:
+            raise ValueError(
+                "per_call_timeout_seconds must be > 0"
+            )
+
+
+class BudgetTracker:
+    def __init__(
+        self,
+        budget: RuntimeBudget,
+        clock: Clock,
+    ) -> None:
+        self._budget = budget
+        self._clock = clock
+        self._started_at = clock.now()
+
+    def elapsed_seconds(self) -> float:
+        return (
+            self._clock.now()
+            - self._started_at
+        )
+
+    def is_expired(self) -> bool:
+        return (
+            self.elapsed_seconds()
+            >= self._budget.max_wall_time_seconds
+        )
+```
+
+**Why:** Agent loop ကို hard time limit ချထားနိုင်ရန်။ `BudgetTracker` က `Clock` Protocol ကို depend လုပ်တဲ့ကြောင့် `FakeClock` နဲ့ deterministic tests ရေးလို့ရတယ်။
+
+---
+
+### `app/agent/loop_guard.py` — Infinite-Loop Detector
+
+```python
+import json
+from collections import Counter
+from typing import Any
+
+
+def call_fingerprint(
+    tool_name: str,
+    arguments: dict[str, Any],
+) -> str:
+    """
+    Return a stable string fingerprint for a tool call.
+
+    Argument order is normalised so that two dicts with
+    the same keys/values always produce the same fingerprint.
+    """
+    canonical = json.dumps(
+        arguments,
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return f"{tool_name}:{canonical}"
+
+
+class LoopGuard:
+    def __init__(
+        self,
+        max_repeated_calls: int = 3,
+    ) -> None:
+        if max_repeated_calls < 1:
+            raise ValueError(
+                "max_repeated_calls must be >= 1"
+            )
+
+        self._max_repeated_calls = (
+            max_repeated_calls
+        )
+
+        self._counts: Counter[str] = Counter()
+
+    def record(self, fingerprint: str) -> bool:
+        """
+        Record a call fingerprint.
+
+        Returns True when the repetition limit
+        has been reached.
+        """
+
+        self._counts[fingerprint] += 1
+
+        return (
+            self._counts[fingerprint]
+            >= self._max_repeated_calls
+        )
+```
+
+**Why:** LLM က တူညီသော tool call ကို သတ်မှတ်ထားတဲ့ limit ထက် ပိုမပြုလုပ်နိုင်အောင် ကာကွယ်တယ်။ `call_fingerprint` က argument order ကြောင့် false negative မဖြစ်အောင် `sort_keys=True` နဲ့ JSON normalize လုပ်တယ်။
+
+---
+
+### `app/agent/decision_recovery.py` — Structured-Output Error Recovery
+
+```python
+from typing import Any
+
+from .structured_output import (
+    StructuredDecisionClient,
+    StructuredOutputError,
+    validate_structured_payload,
+)
+from .validation_errors import (
+    format_structured_output_error,
+)
+
+
+class DecisionRecovery:
+    def __init__(
+        self,
+        client: StructuredDecisionClient,
+        schema: dict[str, Any],
+    ) -> None:
+        self._client = client
+        self._schema = schema
+
+    def generate(
+        self,
+        prompt: str,
+    ):
+        try:
+            payload = self._client.generate_decision(
+                prompt,
+                self._schema,
+            )
+
+            decision = validate_structured_payload(
+                payload
+            )
+
+            return decision, None
+
+        except StructuredOutputError as exc:
+            return (
+                None,
+                format_structured_output_error(exc),
+            )
+```
+
+**Why:** LLM ရဲ့ structured output validation fail ဖြစ်ရင် exception ကို directly propagate မလုပ်ဘဲ LLM-readable observation dict အဖြစ် convert ပြီး return တယ်။ `(decision, observation)` tuple pattern — တစ်ခုမဟုတ်ရင် တစ်ခု None ဖြစ်မယ်။
+
+---
+
+### `app/agent/validation_errors.py` — Updated (+ `format_structured_output_error`)
+
+```python
+from typing import Any
+
+from pydantic import ValidationError
+
+
+def format_validation_error(
+    tool_name: str,
+    error: ValidationError,
+) -> dict[str, Any]:
+    errors: list[dict[str, Any]] = []
+
+    for item in error.errors():
+        location = ".".join(
+            str(part)
+            for part in item.get("loc", ())
+        )
+
+        errors.append(
+            {
+                "field": location,
+                "message": item.get(
+                    "msg",
+                    "Invalid value",
+                ),
+                "type": item.get(
+                    "type",
+                    "validation_error",
+                ),
+            }
+        )
+
+    return {
+        "success": False,
+        "error_type": "tool_argument_validation",
+        "tool_name": tool_name,
+        "message": (
+            f"Invalid arguments for tool '{tool_name}'."
+        ),
+        "errors": errors,
+    }
+
+
+def format_structured_output_error(
+    error: Exception,
+) -> dict[str, Any]:
+    """
+    Convert structured-output failures into a compact
+    observation that can be sent back to the LLM.
+    """
+
+    return {
+        "success": False,
+        "error_type": "structured_output_validation",
+        "message": str(error),
+    }
+```
+
+**Change:** `format_structured_output_error` function ထပ်ထည့်တယ်။ Tool argument validation error (`format_validation_error`) နဲ့ structured output validation error (`format_structured_output_error`) ကို သီးသန့် function နှစ်ခု ခွဲထားတယ်။
+
+---
+
+### `app/agent/state.py` — Updated (`+TIMEOUT`, `+LOOP_DETECTED`)
+
+```python
+class AgentStatus(str, Enum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    MAX_ITERATIONS = "max_iterations"
+    TIMEOUT = "timeout"           # 🆕 wall-clock budget ကုန်
+    LOOP_DETECTED = "loop_detected"  # 🆕 LoopGuard trigger
+    FAILED = "failed"
+```
+
+**Change:** `TIMEOUT` နဲ့ `LOOP_DETECTED` ဆိုတဲ့ termination reason နှစ်ခု ထပ်ထည့်တယ်။ Loop က ဘာကြောင့် ရပ်သွားသလဲ ဆိုတာ caller ကို precise ပြောပြနိုင်မယ်။
+
+---
+
+### `tests/test_budget.py` — Budget Tests (3 tests)
+
+```python
+import pytest
+
+from app.agent.budget import (
+    BudgetTracker,
+    RuntimeBudget,
+)
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.value = 0.0
+
+    def now(self) -> float:
+        return self.value
+
+
+def test_budget_is_not_expired() -> None:
+    clock = FakeClock()
+
+    tracker = BudgetTracker(
+        budget=RuntimeBudget(
+            max_wall_time_seconds=10.0
+        ),
+        clock=clock,
+    )
+
+    clock.value = 5.0
+
+    assert tracker.is_expired() is False
+
+
+def test_budget_expires() -> None:
+    clock = FakeClock()
+
+    tracker = BudgetTracker(
+        budget=RuntimeBudget(
+            max_wall_time_seconds=10.0
+        ),
+        clock=clock,
+    )
+
+    clock.value = 10.0
+
+    assert tracker.is_expired() is True
+
+
+def test_invalid_budget_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        RuntimeBudget(
+            max_wall_time_seconds=0
+        )
+```
+
+**Key Pattern:** `FakeClock.value` ကို manually set လုပ်ပြီး time travel test ရေးတယ်။ Real monotonic clock ကို depend မလုပ်ဘဲ deterministic ဖြစ်တယ်။
+
+---
+
+### `tests/test_loop_guard.py` — Loop Guard Tests (4 tests)
+
+```python
+import pytest
+
+from app.agent.loop_guard import LoopGuard, call_fingerprint
+
+
+def test_repetition_is_detected() -> None:
+    guard = LoopGuard(max_repeated_calls=3)
+
+    assert guard.record("read_file:a.py") is False
+    assert guard.record("read_file:a.py") is False
+    assert guard.record("read_file:a.py") is True  # 3번째에 True
+
+
+def test_different_calls_are_independent() -> None:
+    guard = LoopGuard(max_repeated_calls=2)
+
+    assert guard.record("read_file:a.py") is False
+    assert guard.record("read_file:b.py") is False  # different key
+
+    assert guard.record("read_file:a.py") is True
+
+
+def test_invalid_limit_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        LoopGuard(max_repeated_calls=0)
+
+
+def test_fingerprint_normalizes_argument_order() -> None:
+    first = call_fingerprint(
+        "read_file",
+        {"path": "app/main.py", "max_bytes": 1000},
+    )
+
+    second = call_fingerprint(
+        "read_file",
+        {"max_bytes": 1000, "path": "app/main.py"},
+    )
+
+    assert first == second  # order မဆိုင်ဘူး
+```
+
+---
+
+### `tests/test_decision_recovery.py` — DecisionRecovery Tests (2 tests)
+
+```python
+from typing import Any
+
+from app.agent.decision import DecisionAction
+from app.agent.decision_recovery import DecisionRecovery
+
+
+class FakeStructuredClient:
+    def __init__(
+        self,
+        responses: list[dict[str, Any]],
+    ) -> None:
+        self.responses = list(responses)
+        self.calls = 0
+
+    def generate_decision(
+        self,
+        prompt: str,
+        schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.calls += 1
+        return self.responses.pop(0)
+
+
+def test_invalid_decision_becomes_observation() -> None:
+    # tool_name missing → StructuredOutputError → observation
+    client = FakeStructuredClient(
+        responses=[
+            {
+                "action": "tool_call",
+                "arguments": {"path": "app/main.py"},
+            }
+        ]
+    )
+
+    recovery = DecisionRecovery(client=client, schema={})
+    decision, observation = recovery.generate("Read app/main.py")
+
+    assert decision is None
+    assert observation is not None
+    assert observation["success"] is False
+    assert observation["error_type"] == "structured_output_validation"
+    assert client.calls == 1
+
+
+def test_valid_decision_passes() -> None:
+    client = FakeStructuredClient(
+        responses=[
+            {
+                "action": "tool_call",
+                "tool_name": "read_file",
+                "arguments": {"path": "app/main.py"},
+            }
+        ]
+    )
+
+    recovery = DecisionRecovery(client=client, schema={})
+    decision, observation = recovery.generate("Read app/main.py")
+
+    assert observation is None
+    assert decision is not None
+    assert decision.action == DecisionAction.TOOL_CALL
+    assert decision.tool_name == "read_file"
+```
+
+---
+
+## 📊 Updated Test Suite Summary (Week 2 Day 3)
+
+| Test File | Tests | What It Covers |
+|---|---|---|
+| `test_agent_loop.py` | 4 | Multi-iteration orchestration |
+| `test_agent_state.py` | 4 | AgentState & AgentStatus |
+| `test_budget.py` | 3 | 🆕 RuntimeBudget, BudgetTracker, FakeClock |
+| `test_decision.py` | 9 | Decision schema & validation |
+| `test_decision_recovery.py` | 2 | 🆕 Error→observation recovery |
+| `test_error_recovery.py` | 13 | Error recovery experiments |
+| `test_file_tools.py` | 4 | Workspace file tools |
+| `test_llm_client.py` | 2 | Fake LLM client |
+| `test_loop_guard.py` | 4 | 🆕 LoopGuard, call_fingerprint |
+| `test_openai_tools.py` | 1 | OpenAI tool adapter |
+| `test_retry.py` | 7 | 🆕 RetryPolicy exponential backoff |
+| `test_single_iteration.py` | 2 | Single iteration loop |
+| `test_structured_output.py` | 6 | Structured output strategies |
+| `test_tools.py` | 7 | Tool & Registry |
+| `test_tools_schemas.py` | 11 | Pydantic arg schemas |
+| `test_validation_errors.py` | 1 | Validation error formatter |
+| `test_workspace.py` | 3 | Workspace security |
+| **Total** | **83** | **100% Passing** |
+
+---
+
+## 🏗️ Day 3 New Concepts Summary
+
+```
+RetryPolicy          → LLM call fail ရင် exponential backoff နဲ့ retry
+DecisionRecovery     → Structured output fail → LLM-readable observation
+Clock (Protocol)     → Wall-clock abstraction for testability
+RuntimeBudget        → Hard limits (iterations, wall-time, per-call timeout)
+BudgetTracker        → Real-time budget monitoring (uses Clock)
+LoopGuard            → Repeated-tool-call detection (Counter + fingerprint)
+call_fingerprint     → Stable hash for tool+args (sort_keys normalization)
+AgentStatus.TIMEOUT  → New termination reason
+AgentStatus.LOOP_DETECTED → New termination reason
+```
+
+**Design Pattern:** `(result, error)` tuple pattern — decision ကောင်းရင် `(Decision, None)`, fail ရင် `(None, observation_dict)` return တယ်။ Caller က `if observation:` တစ်ခုနဲ့ check လုပ်လို့ရတယ်။
+
+*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (49 Files, 83 Tests, 100% Passing)*
+
+---
+
+## 🆕 Week 2 Day 4 — Runtime Guard Integration
+
+---
+
+### `app/agent/loop.py` — Updated (Guard Integration)
+
+```python
+import json
+from typing import Any, Protocol
+
+from app.tools import Tool, ToolCall, ToolExecutor, ToolRegistry
+
+from .budget import BudgetTracker
+from .history import ExecutionRecord
+from .loop_guard import LoopGuard, call_fingerprint
+from .state import AgentState, AgentStatus
+
+
+class ToolCallingClient(Protocol):
+    def respond_with_tools(
+        self,
+        *,
+        conversation: list[dict[str, Any]],
+        tools: list[Tool],
+    ) -> tuple[Any, list[ToolCall]]:
+        ...
+
+
+class AgentLoop:
+    """Orchestrates LLM decisions and tool execution.
+
+    Guard order per iteration
+    ─────────────────────────
+    1. wall-clock budget  → TIMEOUT
+    2. iteration budget   → MAX_ITERATIONS
+    3. LLM call
+    4. loop-guard check   → LOOP_DETECTED   (before execution)
+    5. tool execution
+    """
+
+    def __init__(
+        self,
+        client: ToolCallingClient,
+        registry: ToolRegistry,
+        executor: ToolExecutor,
+        max_iterations: int = 10,
+        budget: BudgetTracker | None = None,      # 🆕
+        loop_guard: LoopGuard | None = None,      # 🆕
+    ) -> None:
+        self._client = client
+        self._registry = registry
+        self._executor = executor
+        self._max_iterations = max_iterations
+        self._budget = budget
+        self._loop_guard = loop_guard
+
+    def run(
+        self,
+        user_prompt: str,
+    ) -> AgentState:
+        state = AgentState(
+            conversation=[
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                }
+            ]
+        )
+
+        while not state.is_finished:
+            # ── Guard 1: wall-clock budget ───────────────────────────
+            if (
+                self._budget is not None
+                and self._budget.is_expired()
+            ):
+                state.status = AgentStatus.TIMEOUT
+                break
+
+            # ── Guard 2: iteration budget ────────────────────────────
+            if state.iteration >= self._max_iterations:
+                state.status = AgentStatus.MAX_ITERATIONS
+                break
+
+            # ── LLM call ─────────────────────────────────────────────
+            response, tool_calls = (
+                self._client.respond_with_tools(
+                    conversation=state.conversation,
+                    tools=self._registry.list(),
+                )
+            )
+
+            state.conversation.extend(response.output)
+
+            if not tool_calls:
+                state.final_response = response.output_text
+                state.status = AgentStatus.COMPLETED
+                break
+
+            self._process_tool_calls(tool_calls, state)
+
+            state.iteration += 1
+
+        return state
+
+    def _process_tool_calls(
+        self,
+        tool_calls: list[ToolCall],
+        state: AgentState,
+    ) -> None:
+        """Execute each tool call and append its output to the conversation.
+
+        Mutates *state* in-place. Stops early if loop detection fires.
+        """
+        for tool_call in tool_calls:
+            # ── Guard 3: loop detection (before execution) ────────
+            if self._loop_guard is not None:
+                fp = call_fingerprint(
+                    tool_call.tool_name,
+                    tool_call.arguments,
+                )
+                if self._loop_guard.record(fp):
+                    state.status = AgentStatus.LOOP_DETECTED
+                    return
+
+            if state.is_finished:
+                return
+
+            execution = self._executor.execute(
+                tool_name=tool_call.tool_name,
+                arguments=tool_call.arguments,
+            )
+
+            state.history.add(
+                ExecutionRecord(
+                    tool_name=execution.tool_name,
+                    arguments=execution.arguments,
+                    success=execution.success,
+                    result=execution.result,
+                    error=execution.error,
+                    duration_ms=execution.duration_ms,
+                )
+            )
+
+            output: dict[str, Any] = (
+                {"success": True, "result": execution.result}
+                if execution.success
+                else {"success": False, "error": execution.error}
+            )
+
+            state.conversation.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": tool_call.call_id,
+                    "output": json.dumps(output, default=str),
+                }
+            )
+```
+
+**Key Changes:**
+- `budget: BudgetTracker | None` — optional wall-clock guard
+- `loop_guard: LoopGuard | None` — optional repeated-call guard
+- **Guard order** per iteration: `wall-clock → iteration → LLM → loop-detect → execute`
+- `_process_tool_calls()` method extracted — loop detection `return` ပဲ inner loop ထဲမှာ ရှင်းရှင်းသုံးနိုင်
+- **Backward compatible** — both params default to `None`, existing tests ကိုမထိ
+
+---
+
+### `tests/test_runtime_guards.py` — Integration Tests (4 tests)
+
+```python
+"""
+Week 2 Day 4 — Runtime Guard Integration Tests
+
+Test A — Normal completion     → AgentStatus.COMPLETED
+Test B — Max iterations        → AgentStatus.MAX_ITERATIONS
+Test C — Loop detected         → AgentStatus.LOOP_DETECTED
+Test D — Wall-clock timeout    → AgentStatus.TIMEOUT
+"""
+
+from pathlib import Path
+from types import SimpleNamespace
+
+from app.agent import (
+    AgentLoop,
+    AgentStatus,
+    BudgetTracker,
+    LoopGuard,
+    RuntimeBudget,
+)
+from app.llm import FakeLLMClient, FakeResponse
+from app.tools import (
+    ListFilesTool, ReadFileTool, SearchTextTool,
+    ToolExecutor, ToolRegistry, Workspace,
+)
+
+
+class FakeClock:
+    """Manually-advanced clock — no real sleep() needed."""
+    def __init__(self, value: float = 0.0) -> None:
+        self.value = value
+    def now(self) -> float:
+        return self.value
+
+
+def _make_function_call_item(*, call_id, name, arguments):
+    return SimpleNamespace(type="function_call", call_id=call_id,
+                           name=name, arguments=arguments)
+
+
+def _make_loop(fake_llm, *, max_iterations=10,
+               budget=None, loop_guard=None):
+    workspace = Workspace(Path.cwd())
+    registry = ToolRegistry()
+    registry.register(ListFilesTool(workspace))
+    registry.register(ReadFileTool(workspace))
+    registry.register(SearchTextTool(workspace))
+    return AgentLoop(
+        client=fake_llm,
+        registry=registry,
+        executor=ToolExecutor(registry),
+        max_iterations=max_iterations,
+        budget=budget,
+        loop_guard=loop_guard,
+    )
+
+
+# ── Test A — Normal completion ──────────────────────────────────────────────
+def test_guard_a_normal_completion() -> None:
+    fake_llm = FakeLLMClient(
+        response="Done.",
+        response_sequence=[
+            FakeResponse(output_text="", output=[
+                _make_function_call_item(
+                    call_id="call_001", name="list_files",
+                    arguments='{"path": "."}',
+                )
+            ]),
+            FakeResponse(output_text="Final answer: workspace listed.", output=[]),
+        ],
+    )
+    state = _make_loop(fake_llm).run("List files.")
+
+    assert state.status == AgentStatus.COMPLETED
+    assert "Final answer" in state.final_response
+
+
+# ── Test B — Max iterations ─────────────────────────────────────────────────
+def test_guard_b_max_iterations() -> None:
+    always_tool = [
+        FakeResponse(output_text="", output=[
+            _make_function_call_item(
+                call_id=f"call_{i:03d}", name="list_files",
+                arguments='{"path": "."}',
+            )
+        ])
+        for i in range(10)
+    ]
+    state = _make_loop(
+        FakeLLMClient(response="unreachable", response_sequence=always_tool),
+        max_iterations=3,
+    ).run("Keep going forever.")
+
+    assert state.status == AgentStatus.MAX_ITERATIONS
+    assert state.iteration == 3
+
+
+# ── Test C — Loop detected ──────────────────────────────────────────────────
+def test_guard_c_loop_detected() -> None:
+    repeated = _make_function_call_item(
+        call_id="call_x", name="read_file",
+        arguments='{"path": "app/main.py"}',
+    )
+    fake_llm = FakeLLMClient(
+        response="unreachable",
+        response_sequence=[
+            FakeResponse(output_text="", output=[repeated]),
+            FakeResponse(output_text="", output=[repeated]),
+            FakeResponse(output_text="", output=[repeated]),
+        ],
+    )
+    state = _make_loop(
+        fake_llm,
+        max_iterations=10,
+        loop_guard=LoopGuard(max_repeated_calls=3),
+    ).run("Read the same file.")
+
+    assert state.status == AgentStatus.LOOP_DETECTED
+    assert len(state.history) == 2  # 3rd call was BLOCKED before execution
+
+
+# ── Test D — Wall-clock timeout ─────────────────────────────────────────────
+def test_guard_d_wall_clock_timeout() -> None:
+    clock = FakeClock(value=0.0)
+    budget = BudgetTracker(
+        budget=RuntimeBudget(max_wall_time_seconds=10.0),
+        clock=clock,
+    )
+    fake_llm = FakeLLMClient(
+        response="unreachable",
+        response_sequence=[
+            FakeResponse(output_text="", output=[
+                _make_function_call_item(
+                    call_id="call_001", name="list_files",
+                    arguments='{"path": "."}',
+                )
+            ]),
+            FakeResponse(output_text="should not be reached", output=[]),
+        ],
+    )
+    loop = _make_loop(fake_llm, max_iterations=10, budget=budget)
+
+    # Advance clock after iteration 0 — no real sleep()
+    call_count = [0]
+    original_respond = loop._client.respond_with_tools
+    def _patched(**kwargs):
+        result = original_respond(**kwargs)
+        call_count[0] += 1
+        if call_count[0] == 1:
+            clock.value = 11.0  # expire the budget
+        return result
+    loop._client.respond_with_tools = _patched  # type: ignore
+
+    state = loop.run("List files, then keep going.")
+
+    assert state.status == AgentStatus.TIMEOUT
+    assert state.final_response is None
+```
+
+**Key Testing Decisions:**
+- ⏰ **`FakeClock`** — real `sleep()` မသုံးဘဲ time-based behavior test (senior-level pattern)
+- 🔁 **Test C** — `len(state.history) == 2` ဆိုတာ 3rd tool call ကို execute မလုပ်ဘဲ block ခဲ့တယ်ဆိုတာ prove လုပ်တယ်
+- 🔌 **Test D** — `respond_with_tools` ကို monkey-patch ပြီး clock advance လုပ်တယ်
+- **Backward compatible** — `budget=None, loop_guard=None` default ဖြစ်တဲ့ကြောင့် existing 83 tests အားလုံး pass
+
+---
+
+## 📊 Updated Test Suite Summary (Week 2 Day 4)
+
+| Test File | Tests | What It Covers |
+|---|---|---|
+| `test_agent_loop.py` | 4 | Multi-iteration orchestration |
+| `test_agent_state.py` | 4 | AgentState & AgentStatus |
+| `test_budget.py` | 3 | RuntimeBudget, BudgetTracker, FakeClock |
+| `test_decision.py` | 9 | Decision schema & validation |
+| `test_decision_recovery.py` | 2 | Error→observation recovery |
+| `test_error_recovery.py` | 13 | Error recovery experiments |
+| `test_file_tools.py` | 4 | Workspace file tools |
+| `test_llm_client.py` | 2 | Fake LLM client |
+| `test_loop_guard.py` | 4 | LoopGuard, call_fingerprint |
+| `test_openai_tools.py` | 1 | OpenAI tool adapter |
+| `test_retry.py` | 7 | RetryPolicy exponential backoff |
+| `test_runtime_guards.py` | 4 | 🆕 W2D4 Guard integration (A/B/C/D) |
+| `test_single_iteration.py` | 2 | Single iteration loop |
+| `test_structured_output.py` | 6 | Structured output strategies |
+| `test_tools.py` | 7 | Tool & Registry |
+| `test_tools_schemas.py` | 11 | Pydantic arg schemas |
+| `test_validation_errors.py` | 1 | Validation error formatter |
+| `test_workspace.py` | 3 | Workspace security |
+| **Total** | **87** | **100% Passing** |
+
+---
+
+## 🏗️ Week 2 Day 4 — Key Lesson
+
+```
+Retry         = "ဒီ failure က ပြန်ကြိုးစားလို့ရလား?"
+Budget        = "Agent ကို ဘယ်လောက်အထိ run ခွင့်ရှိလဲ?"
+Loop Guard    = "Agent က အတူတူအလုပ်ကို ထပ်ခါထပ်ခါလုပ်နေလား?"
+Max Iterations= "Reasoning cycle ဘယ်နှစ်ကြိမ်အထိ ခွင့်ပြုမလဲ?"
+```
+
+**ဒါ 4 ခုက တူတဲ့ safety mechanism မဟုတ်ဘူး — orthogonal guards ဖြစ်တယ်။**
+
+```
+             AgentRuntime
+                  │
+     ┌────────────┼────────────┐
+     │            │            │
+     ▼            ▼            ▼
+max_iterations  wall-clock   per-call
+   guard         budget       timeout
+     │            │            │
+     └────────────┼────────────┘
+                  ▼
+             LoopGuard
+                  │
+         repeated tool call?
+                  │
+                  ▼
+                STOP
+```
+
+*Updated by Antigravity AI — Agent Runtime Complete Codebase Dump (50 Files, 87 Tests, 100% Passing)*
+

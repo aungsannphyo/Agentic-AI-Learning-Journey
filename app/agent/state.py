@@ -9,6 +9,8 @@ class AgentStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     MAX_ITERATIONS = "max_iterations"
+    TIMEOUT = "timeout"
+    LOOP_DETECTED = "loop_detected"
     FAILED = "failed"
 
 

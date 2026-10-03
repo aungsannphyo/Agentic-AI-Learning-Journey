@@ -7,11 +7,6 @@ def format_validation_error(
     tool_name: str,
     error: ValidationError,
 ) -> dict[str, Any]:
-    """
-    Convert Pydantic validation errors into a compact,
-    machine-readable observation suitable for an LLM.
-    """
-
     errors: list[dict[str, Any]] = []
 
     for item in error.errors():
@@ -23,8 +18,14 @@ def format_validation_error(
         errors.append(
             {
                 "field": location,
-                "message": item.get("msg", "Invalid value"),
-                "type": item.get("type", "validation_error"),
+                "message": item.get(
+                    "msg",
+                    "Invalid value",
+                ),
+                "type": item.get(
+                    "type",
+                    "validation_error",
+                ),
             }
         )
 
@@ -36,4 +37,19 @@ def format_validation_error(
             f"Invalid arguments for tool '{tool_name}'."
         ),
         "errors": errors,
+    }
+
+
+def format_structured_output_error(
+    error: Exception,
+) -> dict[str, Any]:
+    """
+    Convert structured-output failures into a compact
+    observation that can be sent back to the LLM.
+    """
+
+    return {
+        "success": False,
+        "error_type": "structured_output_validation",
+        "message": str(error),
     }
