@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from app.llm import AttemptRecord
+
 from .cost import UsageTracker
 from .history import ExecutionHistory
 
@@ -25,6 +27,7 @@ class AgentState:
     error: str | None = None
     history: ExecutionHistory = field(default_factory=ExecutionHistory)
     usage: UsageTracker = field(default_factory=UsageTracker)
+    llm_attempts: list[AttemptRecord] = field(default_factory=list)
 
     @property
     def is_finished(self) -> bool:

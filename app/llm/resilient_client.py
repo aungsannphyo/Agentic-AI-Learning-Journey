@@ -1,43 +1,23 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 from typing import Any
 
-from app.tools import Tool, ToolCall
+from app.tools import Tool
 
+from .errors import DeadlineExceeded, LLMCallFailed
 from .llm_errors import classify_llm_error
 from .retry import ErrorKind, RetryPolicy
-
-
-class LLMCallFailed(Exception):
-    """Raised when an LLM call fails permanently or exhausts retries."""
-
-    def __init__(self, message: str, *, attempts: int, kind: ErrorKind) -> None:
-        super().__init__(message)
-        self.attempts = attempts
-        self.kind = kind
-
-
-class DeadlineExceeded(Exception):
-    """Raised when the run deadline expires while waiting to retry."""
-
-
-@dataclass(frozen=True)
-class AttemptRecord:
-    attempt: int
-    error: str
-    kind: ErrorKind
-    delay_seconds: float
+from .types import AttemptRecord, LLMResponse
 
 
 class ResilientClient:
-    """
-    Retry decorator around any ToolCallingClient.
+    """Retry decorator around any LLMClient. Stateless.
 
-    Only the LLM call is retried. Tool execution is NOT retried here:
-    tools may have side effects; their failures go back to the model.
+    Only the LLM call is retried; tool execution never is (side effects).
+    The attempt log travels on the response (or on the raised exception).
     """
 
     def __init__(
@@ -51,33 +31,25 @@ class ResilientClient:
         self._inner = inner
         self._policy = policy
         self._sleep = sleep
-        self._deadline_expired: Callable[[], bool] | None = None
         self._classify = classify
-        self.attempt_log: list[AttemptRecord] = []
 
-    def set_deadline_check(self, check: Callable[[], bool] | None) -> None:
-        """Bind the current run's deadline. Called by AgentLoop at run start."""
-        self._deadline_expired = check
-        self.attempt_log = []
-
-    def respond_with_tools(
+    def complete(
         self,
         *,
-        conversation: list[dict[str, Any]],
-        tools: list[Tool],
-    ) -> tuple[Any, list[ToolCall]]:
+        messages: list[dict[str, Any]],
+        tools: Sequence[Tool],
+        should_abort: Callable[[], bool] | None = None,
+    ) -> LLMResponse:
+        attempts: list[AttemptRecord] = []
         attempt = 1
         while True:
             try:
-                return self._inner.respond_with_tools(
-                    conversation=conversation, tools=tools
-                )
+                response = self._inner.complete(messages=messages, tools=tools)
+                return replace(response, attempts=tuple(attempts))
             except Exception as exc:  # noqa: BLE001 - classified below
                 kind = self._classify(exc)
-                decision = self._policy.decide(
-                    attempt=attempt, error_kind=kind)
-
-                self.attempt_log.append(
+                decision = self._policy.decide(attempt=attempt, error_kind=kind)
+                attempts.append(
                     AttemptRecord(
                         attempt=attempt,
                         error=f"{type(exc).__name__}: {exc}",
@@ -92,11 +64,13 @@ class ResilientClient:
                         f"after {attempt} attempt(s): {exc}",
                         attempts=attempt,
                         kind=kind,
+                        attempt_log=tuple(attempts),
                     ) from exc
 
-                if self._deadline_expired is not None and self._deadline_expired():
+                if should_abort is not None and should_abort():
                     raise DeadlineExceeded(
-                        "run deadline expired while retrying LLM call"
+                        "run deadline expired while retrying LLM call",
+                        attempt_log=tuple(attempts),
                     ) from exc
 
                 self._sleep(decision.delay_seconds)

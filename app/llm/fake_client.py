@@ -1,9 +1,10 @@
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.tools import ToolCall, parse_tool_call
+from app.tools import parse_tool_call
 
-from .client import LLMClient
+from .types import LLMResponse, extract_usage
 
 
 @dataclass
@@ -14,8 +15,18 @@ class FakeResponse:
     usage: Any = None
 
 
-class FakeLLMClient(LLMClient):
-    """Deterministic LLM implementation for tests."""
+def _item_to_dict(item: Any) -> dict[str, Any]:
+    if isinstance(item, dict):
+        return item
+    return {
+        key: getattr(item, key)
+        for key in ("type", "call_id", "name", "arguments")
+        if hasattr(item, key)
+    }
+
+
+class FakeLLMClient:
+    """Deterministic LLMClient for tests."""
 
     def __init__(
         self,
@@ -29,39 +40,37 @@ class FakeLLMClient(LLMClient):
         )
         self.calls: list[dict[str, Any]] = []
 
-    def _extract_tool_calls(self, response: FakeResponse) -> list[ToolCall]:
-        return [
+    def complete(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        tools: Sequence[Any],
+        should_abort: Callable[[], bool] | None = None,
+    ) -> LLMResponse:
+        self.calls.append(
+            {
+                "method": "complete",
+                "messages": [dict(m) for m in messages],
+                "tools": [t.name for t in tools],
+            }
+        )
+        fake = (
+            self._response_sequence.pop(0)
+            if self._response_sequence
+            else FakeResponse(output_text=self.response)
+        )
+        tool_calls = tuple(
             parse_tool_call(
                 call_id=item.call_id,
                 name=item.name,
                 raw_arguments=item.arguments,
             )
-            for item in response.output
+            for item in fake.output
             if item.type == "function_call"
-        ]
-
-    def ask(self, *, system_prompt: str, user_prompt: str) -> str:
-        self.calls.append(
-            {"system_prompt": system_prompt, "user_prompt": user_prompt}
         )
-        return self.response
-
-    def respond_with_tools(
-        self,
-        *,
-        conversation: list[dict[str, Any]],
-        tools: list[Any],
-    ) -> tuple[FakeResponse, list[ToolCall]]:
-        self.calls.append(
-            {
-                "method": "respond_with_tools",
-                "conversation": list(conversation),
-                "tools": [tool.name for tool in tools],
-            }
+        return LLMResponse(
+            text=fake.output_text,
+            tool_calls=tool_calls,
+            usage=extract_usage(fake),
+            assistant_items=tuple(_item_to_dict(i) for i in fake.output),
         )
-        if self._response_sequence:
-            fake_response = self._response_sequence.pop(0)
-        else:
-            fake_response = FakeResponse(output_text=self.response)
-
-        return fake_response, self._extract_tool_calls(fake_response)

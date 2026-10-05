@@ -1,6 +1,6 @@
 import pytest
 
-from app.agent.retry import (
+from app.llm.retry import (
     ErrorKind,
     RetryPolicy,
 )

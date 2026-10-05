@@ -1,7 +1,7 @@
 from typing import Any
 
-from app.agent.decision import DecisionAction
-from app.agent.decision_recovery import DecisionRecovery
+from experiments.week2_structured_output.decision import DecisionAction
+from experiments.week2_structured_output.decision_recovery import DecisionRecovery
 
 
 class FakeStructuredClient:

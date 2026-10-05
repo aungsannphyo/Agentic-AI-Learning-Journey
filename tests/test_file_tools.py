@@ -116,3 +116,32 @@ def test_search_text_returns_matches(
             "text": "def login():",
         }
     ]
+
+
+def test_search_text_skips_environment_and_cache_dirs(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("needle\n", encoding="utf-8")
+
+    for skipped in (".venv/lib", "__pycache__", "node_modules/pkg", ".git/objects"):
+        d = tmp_path / skipped
+        d.mkdir(parents=True)
+        (d / "noise.py").write_text("needle\n", encoding="utf-8")
+
+    result = SearchTextTool(Workspace(tmp_path)).run(
+        {"query": "needle", "path": ""}
+    )
+
+    assert [r["path"] for r in result] == ["src/a.py"]
+
+
+def test_search_text_can_target_a_skipped_dir_explicitly(tmp_path: Path) -> None:
+    d = tmp_path / ".venv"
+    d.mkdir()
+    (d / "x.py").write_text("needle\n", encoding="utf-8")
+
+    result = SearchTextTool(Workspace(tmp_path)).run(
+        {"query": "needle", "path": ".venv"}
+    )
+
+    assert [r["path"] for r in result] == [".venv/x.py"]
+

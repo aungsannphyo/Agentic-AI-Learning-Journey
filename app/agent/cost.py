@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .usage import Usage
+from app.llm.types import Usage
 
 
 @dataclass(frozen=True)

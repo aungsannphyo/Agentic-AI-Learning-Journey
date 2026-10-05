@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import httpx
 import openai
 
-from app.agent import AgentLoop, AgentStatus, LoopGuard, RetryPolicy
-from app.agent.resilient_client import ResilientClient
-from app.llm import FakeLLMClient, FakeResponse
+from app.agent import AgentLoop, AgentStatus, LoopGuard
+from app.llm import FakeLLMClient, FakeResponse, LLMResponse, ResilientClient, RetryPolicy
+from tests.builders import llm_response, tool_outputs
 from app.tools import (
     ListFilesTool, ReadFileTool, SearchTextTool, ToolExecutor, ToolRegistry, Workspace,
 )
@@ -33,7 +33,13 @@ def _final(text: str = "done") -> FakeResponse:
     return FakeResponse(output_text=text, output=[], usage=_usage())
 
 
-def _agent(client, *, max_iterations: int = 10, guard: bool = False) -> AgentLoop:
+def _agent(
+    client,
+    *,
+    max_iterations: int = 10,
+    guard: bool = False,
+    max_consecutive_malformed: int = 10,
+) -> AgentLoop:
     ws = Workspace(Path.cwd())
     registry = ToolRegistry()
     registry.register(ListFilesTool(ws))
@@ -44,17 +50,15 @@ def _agent(client, *, max_iterations: int = 10, guard: bool = False) -> AgentLoo
         registry=registry,
         executor=ToolExecutor(registry),
         max_iterations=max_iterations,
-        loop_guard_factory=(lambda: LoopGuard(max_repeated_calls=3)) if guard else None,
+        loop_guard_factory=(
+            (lambda: LoopGuard(block_on_nth_call=3)) if guard else None
+        ),
+        max_consecutive_malformed=max_consecutive_malformed,
     )
 
 
 def _outputs(fake: FakeLLMClient, call_index: int) -> list[dict]:
-    conv = fake.calls[call_index]["conversation"]
-    return [
-        json.loads(m["output"])
-        for m in conv
-        if isinstance(m, dict) and m.get("type") == "function_call_output"
-    ]
+    return tool_outputs(fake.calls[call_index]["messages"])
 
 
 # 1. Garbage JSON arguments → recoverable observation, NOT run death
@@ -127,16 +131,46 @@ def test_endless_malformed_calls_stop_at_max_iterations() -> None:
     assert len(state.history) == 3
 
 
+def test_consecutive_malformed_calls_stop_the_run() -> None:
+    fake = FakeLLMClient(
+        response="x",
+        response_sequence=[_call(f"c{i}", "read_file", "{bad") for i in range(10)],
+    )
+    state = _agent(fake, max_consecutive_malformed=3).run("go")
+
+    assert state.status == AgentStatus.LOOP_DETECTED
+    assert "malformed" in (state.error or "")
+    assert len(state.history) == 3
+
+
+def test_valid_call_resets_malformed_counter() -> None:
+    fake = FakeLLMClient(
+        response="x",
+        response_sequence=[
+            _call("c1", "read_file", "{bad"),
+            _call("c2", "list_files", '{"path": "."}'),
+            _call("c3", "read_file", "{bad"),
+            _call("c4", "read_file", "{bad"),
+            _final(),
+        ],
+    )
+    state = _agent(fake, max_consecutive_malformed=3).run("go")
+
+    assert state.status == AgentStatus.COMPLETED
+
+
 # 5/6. Transient provider faults through the real retry stack
 class _Scripted:
     def __init__(self, script):
         self._script = list(script)
 
-    def respond_with_tools(self, *, conversation, tools):
+    def complete(self, *, messages, tools, should_abort=None):
         item = self._script.pop(0)
         if isinstance(item, Exception):
             raise item
-        return item, []
+        if isinstance(item, FakeResponse):
+            return LLMResponse(text=item.output_text, tool_calls=(), usage=None)
+        return item
 
 
 def _req() -> httpx.Request:
@@ -152,7 +186,7 @@ def test_timeout_then_success_is_retried() -> None:
     state = _agent(client).run("go")
 
     assert state.status == AgentStatus.COMPLETED
-    assert [r.kind.value for r in client.attempt_log] == ["transient"]
+    assert [r.kind.value for r in state.llm_attempts] == ["transient"]
 
 
 def test_429_backoff_then_exhausted() -> None:

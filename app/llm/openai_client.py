@@ -1,16 +1,17 @@
 import os
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from openai import OpenAI
 
-from app.tools import Tool, ToolCall, parse_tool_call
+from app.tools import Tool, parse_tool_call
 
-from .client import LLMClient
 from .openai_tools import to_openai_tool
+from .types import LLMResponse, extract_usage
 
 
-class OpenAIClient(LLMClient):
-    """OpenAI implementation of the provider-independent LLMClient."""
+class OpenAIClient:
+    """OpenAI Responses API implementation of LLMClient (Groq-compatible)."""
 
     def __init__(
         self,
@@ -19,79 +20,82 @@ class OpenAIClient(LLMClient):
         temperature: float | None = None,
         system_prompt: str | None = None,
         timeout_seconds: float | None = None,
-
+        sdk_client: Any | None = None,
     ) -> None:
-        self._client = OpenAI(
+        self._client = sdk_client or OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
             base_url="https://api.groq.com/openai/v1",
             timeout=timeout_seconds,
             max_retries=0,
         )
-
-        self._model = model or os.getenv(
-            "OPENAI_MODEL",
-            "openai/gpt-oss-120b",
-        )
-
+        self._model = model or os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
         self._temperature = (
             temperature
             if temperature is not None
-            else float(
-                os.getenv(
-                    "OPENAI_TEMPERATURE",
-                    "0.2",
-                )
-            )
+            else float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
         )
-
         self._system_prompt: str | None = system_prompt
 
-    def ask(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-    ) -> str:
-        response = self._client.responses.create(
-            model=self._model,
-            instructions=system_prompt,
-            input=user_prompt,
-            temperature=self._temperature,
+    @staticmethod
+    def _to_openai_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for message in messages:
+            kind = message["kind"]
+            if kind == "user":
+                items.append({"role": "user", "content": message["text"]})
+            elif kind == "assistant":
+                items.extend(message["items"])
+            elif kind == "tool_result":
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": message["call_id"],
+                        "output": message["output"],
+                    }
+                )
+            else:
+                raise ValueError(f"unknown message kind: {kind}")
+        return items
+
+    @staticmethod
+    def _dump_item(item: Any) -> dict[str, Any]:
+        if isinstance(item, dict):
+            return item
+        dump = getattr(item, "model_dump", None)
+        if callable(dump):
+            return dump(mode="json", exclude_none=True)
+        raise TypeError(
+            f"cannot serialize provider item of type {type(item).__name__}"
         )
 
-        return response.output_text
-
-    def respond_with_tools(
+    def complete(
         self,
         *,
-        conversation: list[dict[str, Any]],
-        tools: list[Tool],
-    ) -> tuple[Any, list[ToolCall]]:
-        """Single unified call used by AgentLoop on every iteration.
-
-        Sends the full conversation history and available tools to the
-        model, then extracts any tool-call requests from the response.
-        """
+        messages: list[dict[str, Any]],
+        tools: Sequence[Tool],
+        should_abort: Callable[[], bool] | None = None,
+    ) -> LLMResponse:
         response = self._client.responses.create(
             model=self._model,
             instructions=self._system_prompt,
-            input=conversation,
+            input=self._to_openai_input(messages),
             tools=[to_openai_tool(tool) for tool in tools],
             temperature=self._temperature,
         )
 
-        tool_calls: list[ToolCall] = []
-
-        for item in response.output:
-            if item.type != "function_call":
-                continue
-
-            tool_calls.append(
-                parse_tool_call(
-                    call_id=item.call_id,
-                    name=item.name,
-                    raw_arguments=item.arguments,
-                )
+        tool_calls = tuple(
+            parse_tool_call(
+                call_id=item.call_id,
+                name=item.name,
+                raw_arguments=item.arguments,
             )
+            for item in response.output
+            if item.type == "function_call"
+        )
 
-        return response, tool_calls
+        return LLMResponse(
+            text=response.output_text,
+            tool_calls=tool_calls,
+            usage=extract_usage(response),
+            assistant_items=tuple(self._dump_item(i) for i in response.output),
+        )

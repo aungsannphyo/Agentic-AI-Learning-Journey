@@ -1,9 +1,23 @@
+import os
 from pathlib import Path
 from typing import Any
 
 from .base import Tool
 from .schemas import SearchTextArgs
 from .workspace import Workspace
+
+SKIP_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+        "node_modules",
+    }
+)
 
 
 class SearchTextTool(Tool):
@@ -104,14 +118,13 @@ class SearchTextTool(Tool):
     def _iter_files(self, directory: Path) -> list[Path]:
         files: list[Path] = []
 
-        for path in directory.rglob("*"):
-            if not path.is_file():
-                continue
+        for current, dirnames, filenames in os.walk(directory):
+            # prune in place so os.walk never descends into skipped dirs
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
 
-            if ".git" in path.parts:
-                continue
-
-            files.append(path)
+            for name in filenames:
+                path = Path(current) / name
+                if path.is_file():
+                    files.append(path)
 
         return sorted(files)
-

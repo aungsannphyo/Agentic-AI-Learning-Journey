@@ -44,14 +44,14 @@ def test_loop_guard_state_does_not_leak_between_runs() -> None:
     holder = {"client": make_client()}
 
     class SwappableClient:
-        def respond_with_tools(self, **kwargs):
-            return holder["client"].respond_with_tools(**kwargs)
+        def complete(self, **kwargs):
+            return holder["client"].complete(**kwargs)
 
     agent = AgentLoop(
         client=SwappableClient(),
         registry=registry,
         executor=ToolExecutor(registry),
-        loop_guard_factory=lambda: LoopGuard(max_repeated_calls=3),
+        loop_guard_factory=lambda: LoopGuard(block_on_nth_call=3),
     )
 
     first = agent.run("one")

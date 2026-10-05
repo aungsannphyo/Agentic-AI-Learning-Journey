@@ -7,10 +7,10 @@ import openai
 import pytest
 
 from app.agent import AgentLoop, AgentStatus
-from app.agent.llm_errors import classify_llm_error
-from app.agent.resilient_client import ResilientClient
-from app.agent.retry import ErrorKind, RetryPolicy
-from app.llm import FakeLLMClient, FakeResponse
+from app.llm.llm_errors import classify_llm_error
+from app.llm.resilient_client import ResilientClient
+from app.llm.retry import ErrorKind, RetryPolicy
+from app.llm import FakeLLMClient, FakeResponse, LLMResponse, extract_usage
 from app.tools import (
     ListFilesTool, ReadFileTool, SearchTextTool,
     ToolExecutor, ToolRegistry, Workspace,
@@ -39,12 +39,18 @@ class ScriptedClient:
         self._script = list(script)
         self.calls = 0
 
-    def respond_with_tools(self, *, conversation, tools):
+    def complete(self, *, messages, tools, should_abort=None):
         self.calls += 1
         item = self._script.pop(0)
         if isinstance(item, Exception):
             raise item
-        return item, []
+        if isinstance(item, FakeResponse):
+            return LLMResponse(
+                text=item.output_text,
+                tool_calls=(),
+                usage=extract_usage(item),
+            )
+        return item
 
 
 def _ok(text: str = "ok") -> FakeResponse:
@@ -124,25 +130,23 @@ def test_retry_budget_exhausted_ends_llm_failed() -> None:
 
 
 def test_deadline_expiry_during_retry_raises_deadline_exceeded() -> None:
-    from app.agent.resilient_client import DeadlineExceeded
+    from app.llm.errors import DeadlineExceeded
 
     inner = ScriptedClient([_rate_limit(), _ok()])
     client = ResilientClient(
         inner, RetryPolicy(max_attempts=3), sleep=lambda _s: None
     )
-    client.set_deadline_check(lambda: True)
-
     with pytest.raises(DeadlineExceeded):
-        client.respond_with_tools(conversation=[], tools=[])
+        client.complete(messages=[], tools=[], should_abort=lambda: True)
 
     assert inner.calls == 1  # never retried
 
 
 def test_loop_maps_deadline_exceeded_to_timeout() -> None:
-    from app.agent.resilient_client import DeadlineExceeded
+    from app.llm.errors import DeadlineExceeded
 
     class RaisesDeadline:
-        def respond_with_tools(self, *, conversation, tools):
+        def complete(self, *, messages, tools, should_abort=None):
             raise DeadlineExceeded("x")
 
     state = _loop(RaisesDeadline()).run("hi")

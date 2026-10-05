@@ -5,7 +5,7 @@ from app.agent.loop_guard import LoopGuard, call_fingerprint
 
 def test_repetition_is_detected() -> None:
     guard = LoopGuard(
-        max_repeated_calls=3
+        block_on_nth_call=3
     )
 
     assert guard.record("read_file:a.py") is False
@@ -15,7 +15,7 @@ def test_repetition_is_detected() -> None:
 
 def test_different_calls_are_independent() -> None:
     guard = LoopGuard(
-        max_repeated_calls=2
+        block_on_nth_call=2
     )
 
     assert guard.record("read_file:a.py") is False
@@ -26,7 +26,7 @@ def test_different_calls_are_independent() -> None:
 
 def test_invalid_limit_is_rejected() -> None:
     with pytest.raises(ValueError):
-        LoopGuard(max_repeated_calls=0)
+        LoopGuard(block_on_nth_call=0)
 
 
 def test_fingerprint_normalizes_argument_order() -> None:

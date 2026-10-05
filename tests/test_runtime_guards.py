@@ -173,7 +173,7 @@ def test_guard_b_max_iterations() -> None:
 def test_guard_c_loop_detected() -> None:
     """
     LLM requests the identical tool call 3 times.
-    LoopGuard(max_repeated_calls=3) must fire on the 3rd call
+    LoopGuard(block_on_nth_call=3) must fire on the 3rd call
     BEFORE the tool is executed, returning LOOP_DETECTED.
     """
     repeated_call = _make_function_call_item(
@@ -194,7 +194,7 @@ def test_guard_c_loop_detected() -> None:
     loop = _make_loop(
         fake_llm,
         max_iterations=10,
-        loop_guard_factory=lambda: LoopGuard(max_repeated_calls=3),
+        loop_guard_factory=lambda: LoopGuard(block_on_nth_call=3),
     )
     state = loop.run("Read the same file.")
 
@@ -248,19 +248,19 @@ def test_guard_d_wall_clock_timeout() -> None:
         clock=clock,
     )
 
-    # Wrap respond_with_tools to advance clock after iteration 0
+    # Wrap complete to advance clock after iteration 0
     call_count = [0]
-    original_respond = loop._client.respond_with_tools
+    original_complete = loop._client.complete
 
-    def _patched_respond(**kwargs):
-        result = original_respond(**kwargs)
+    def _patched_complete(**kwargs):
+        result = original_complete(**kwargs)
         call_count[0] += 1
         if call_count[0] == 1:
             # Expire the budget before iteration 1 begins
             clock.value = 11.0
         return result
 
-    loop._client.respond_with_tools = _patched_respond  # type: ignore[method-assign]
+    loop._client.complete = _patched_complete  # type: ignore[method-assign]
 
     state = loop.run("List files, then keep going.")
 

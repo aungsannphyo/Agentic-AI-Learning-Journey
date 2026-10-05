@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.agent.decision import Decision, DecisionAction
+from experiments.week2_structured_output.decision import Decision, DecisionAction
 
 
 def test_tool_call_decision_is_valid() -> None:

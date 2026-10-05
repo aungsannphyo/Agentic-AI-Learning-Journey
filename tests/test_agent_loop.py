@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, FakeResponse
+from app.llm.types import user_message
 from app.tools import (
     ListFilesTool,
     ReadFileTool,
@@ -93,7 +94,7 @@ def test_agent_loop_completes_after_tool_call() -> None:
 
     # LLM was called exactly twice
     respond_calls = [
-        c for c in fake_llm.calls if c.get("method") == "respond_with_tools"
+        c for c in fake_llm.calls if c.get("method") == "complete"
     ]
     assert len(respond_calls) == 2
 
@@ -174,15 +175,14 @@ def test_agent_loop_preserves_conversation() -> None:
     conv = state.conversation
 
     # [0] original user message
-    assert conv[0] == {"role": "user", "content": "Inspect workspace."}
+    assert conv[0] == user_message("Inspect workspace.")
 
-    # [1] function_call item appended from response.output
-    assert conv[1].type == "function_call"
-    assert conv[1].call_id == "call_abc"
-    assert conv[1].name == "list_files"
+    # [1] assistant message
+    assert conv[1]["kind"] == "assistant"
+    assert conv[1]["items"][0]["call_id"] == "call_abc"
 
     # [2] tool execution result
-    assert conv[2]["type"] == "function_call_output"
+    assert conv[2]["kind"] == "tool_result"
     assert conv[2]["call_id"] == "call_abc"
 
     # Final state

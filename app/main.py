@@ -11,9 +11,7 @@ from app.agent import (
     RuntimeBudget,
     TokenBudget,
 )
-from app.agent.resilient_client import ResilientClient
-from app.agent.retry import RetryPolicy
-from app.llm import OpenAIClient
+from app.llm import OpenAIClient, ResilientClient, RetryPolicy
 from app.tools import (
     ListFilesTool,
     ReadFileTool,
@@ -48,7 +46,6 @@ def main() -> None:
     executor = ToolExecutor(registry)
 
     runtime_budget = RuntimeBudget(
-        max_iterations=10,
         max_wall_time_seconds=120.0,
         per_call_timeout_seconds=30.0,
     )
@@ -69,9 +66,9 @@ def main() -> None:
         client=client,
         registry=registry,
         executor=executor,
-        max_iterations=runtime_budget.max_iterations,
+        max_iterations=10,
         runtime_budget=runtime_budget,
-        loop_guard_factory=lambda: LoopGuard(max_repeated_calls=3),
+        loop_guard_factory=lambda: LoopGuard(block_on_nth_call=3),
         token_budget=TokenBudget(
             max_total_tokens=int(os.getenv("AGENT_MAX_TOTAL_TOKENS", "50000"))
         ),
@@ -89,9 +86,9 @@ def main() -> None:
     if state.error:
         print(state.error)
 
-    if client.attempt_log:
+    if state.llm_attempts:
         print("\n=== LLM Retry Log ===\n")
-        for rec in client.attempt_log:
+        for rec in state.llm_attempts:
             print(rec)
 
     print("\n=== Usage Report ===\n")

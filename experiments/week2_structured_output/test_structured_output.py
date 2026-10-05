@@ -1,7 +1,7 @@
 import pytest
 
-from app.agent.decision import DecisionAction
-from app.agent.structured_output import (
+from experiments.week2_structured_output.decision import DecisionAction
+from experiments.week2_structured_output.structured_output import (
     StructuredOutputError,
     parse_prompt_json,
     validate_structured_payload,

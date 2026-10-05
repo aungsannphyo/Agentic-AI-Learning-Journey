@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, FakeResponse
+from tests.builders import tool_outputs
 from app.tools import (
     ListFilesTool,
     ReadFileTool,
@@ -160,16 +161,9 @@ class TestExperiment1ToolErrorRecovery:
         loop = _make_loop(fake_llm)
         loop.run("Read a ghost file.")
 
-        second_call_conv = fake_llm.calls[1]["conversation"]
-        tool_outputs = [
-            m for m in second_call_conv
-            if isinstance(m, dict) and m.get("type") == "function_call_output"
-        ]
-
-        assert len(tool_outputs) == 1
-        assert tool_outputs[0]["call_id"] == "call_err"
-
-        payload = json.loads(tool_outputs[0]["output"])
+        outputs = tool_outputs(fake_llm.calls[1]["messages"])
+        assert len(outputs) == 1
+        payload = outputs[0]
         assert payload["success"] is False
 
     def test_hallucinated_tool_name_recovery(self) -> None:
@@ -225,14 +219,9 @@ class TestExperiment1ToolErrorRecovery:
         assert r1.success is True
 
         # Observation reached LLM in second iteration
-        second_conv = fake_llm.calls[1]["conversation"]
-        tool_outputs = [
-            m
-            for m in second_conv
-            if isinstance(m, dict) and m.get("type") == "function_call_output"
-        ]
-        assert len(tool_outputs) == 1
-        payload = json.loads(tool_outputs[0]["output"])
+        outputs = tool_outputs(fake_llm.calls[1]["messages"])
+        assert len(outputs) == 1
+        payload = outputs[0]
         assert payload["success"] is False
         assert "Unknown tool" in payload["error"]
 
@@ -380,14 +369,9 @@ class TestExperiment2PathTraversal:
         loop = _make_loop(fake_llm, workspace=workspace)
         loop.run("Read system files.")
 
-        second_conv = fake_llm.calls[1]["conversation"]
-        tool_outputs = [
-            m for m in second_conv
-            if isinstance(m, dict) and m.get("type") == "function_call_output"
-        ]
-
-        assert len(tool_outputs) == 1
-        payload = json.loads(tool_outputs[0]["output"])
+        outputs = tool_outputs(fake_llm.calls[1]["messages"])
+        assert len(outputs) == 1
+        payload = outputs[0]
         assert payload["success"] is False
         assert "escapes workspace" in payload["error"].lower()
 
@@ -472,13 +456,9 @@ class TestExperiment3HugeOutput:
         )
         loop.run("Read large file.")
 
-        second_conv = fake_llm.calls[1]["conversation"]
-        tool_outputs = [
-            m for m in second_conv
-            if isinstance(m, dict) and m.get("type") == "function_call_output"
-        ]
-
-        payload = json.loads(tool_outputs[0]["output"])
+        outputs = tool_outputs(fake_llm.calls[1]["messages"])
+        assert len(outputs) == 1
+        payload = outputs[0]
         assert payload["success"] is False
         assert "too large" in payload["error"].lower()
 

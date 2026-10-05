@@ -1,47 +1,42 @@
 import json
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any
 
-from app.tools import Tool, ToolCall, ToolExecutor, ToolRegistry
+from app.llm import DeadlineExceeded, LLMCallFailed, LLMClient
+from app.llm.types import assistant_message, tool_result_message, user_message
+from app.tools import ToolCall, ToolExecutor, ToolRegistry
 
 from .budget import BudgetTracker, RuntimeBudget
 from .clock import Clock, MonotonicClock
 from .cost import ModelPricing, TokenBudget, UsageTracker
 from .history import ExecutionRecord
-from .loop_guard import LoopGuard, call_fingerprint
-from .resilient_client import DeadlineExceeded, LLMCallFailed
+from .loop_guard import ConsecutiveCounter, LoopGuard, call_fingerprint
 from .state import AgentState, AgentStatus
-from .usage import extract_usage
-
-
-class ToolCallingClient(Protocol):
-    def respond_with_tools(
-        self,
-        *,
-        conversation: list[dict[str, Any]],
-        tools: list[Tool],
-    ) -> tuple[Any, list[ToolCall]]:
-        ...
 
 
 class AgentLoop:
     """Orchestrates LLM decisions and tool execution.
 
-    Guard order per iteration
-    ─────────────────────────
-    1. wall-clock budget   → TIMEOUT
-    2. iteration budget    → MAX_ITERATIONS
-    3. LLM call
+    state.conversation is a provider-neutral, JSON-serializable message list.
+
+    Order per iteration
+    ───────────────────
+    1. wall-clock budget    → TIMEOUT
+    2. iteration budget     → MAX_ITERATIONS
+    3. LLM call             → LLM_FAILED / TIMEOUT on retry-layer errors
     4. record usage
-    5. final answer?       → COMPLETED (accepted even if over token budget)
-    6. token budget        → TOKEN_BUDGET_EXCEEDED (before any side effect)
-    7. loop-guard check    → LOOP_DETECTED (before execution)
-    8. tool execution
+    5. final answer?        → COMPLETED (accepted even if over token budget)
+    6. token budget         → TOKEN_BUDGET_EXCEEDED (before any side effect)
+
+    Then for each requested tool call:
+    7. parse_error?         → observation to model; N consecutive → LOOP_DETECTED
+    8. loop guard           → LOOP_DETECTED (before execution)
+    9. tool execution       → validation (mandatory) → run → observation
     """
 
     def __init__(
         self,
-        client: ToolCallingClient,
+        client: LLMClient,
         registry: ToolRegistry,
         executor: ToolExecutor,
         max_iterations: int = 10,
@@ -50,6 +45,7 @@ class AgentLoop:
         loop_guard_factory: Callable[[], LoopGuard] | None = None,
         token_budget: TokenBudget | None = None,
         pricing: ModelPricing | None = None,
+        max_consecutive_malformed: int = 3,
     ) -> None:
         if (
             token_budget is not None
@@ -69,10 +65,11 @@ class AgentLoop:
         self._loop_guard_factory = loop_guard_factory
         self._token_budget = token_budget
         self._pricing = pricing
+        self._max_consecutive_malformed = max_consecutive_malformed
 
     def run(self, user_prompt: str) -> AgentState:
         state = AgentState(
-            conversation=[{"role": "user", "content": user_prompt}],
+            conversation=[user_message(user_prompt)],
             usage=UsageTracker(self._pricing),
         )
 
@@ -86,10 +83,8 @@ class AgentLoop:
             if self._loop_guard_factory is not None
             else None
         )
-
-        set_deadline = getattr(self._client, "set_deadline_check", None)
-        if callable(set_deadline):
-            set_deadline(tracker.is_expired if tracker is not None else None)
+        malformed = ConsecutiveCounter(self._max_consecutive_malformed)
+        should_abort = tracker.is_expired if tracker is not None else None
 
         while not state.is_finished:
             if tracker is not None and tracker.is_expired():
@@ -99,31 +94,38 @@ class AgentLoop:
             if state.iteration >= self._max_iterations:
                 state.status = AgentStatus.MAX_ITERATIONS
                 break
+
             try:
-                response, tool_calls = self._client.respond_with_tools(
-                    conversation=state.conversation,
+                response = self._client.complete(
+                    messages=state.conversation,
                     tools=self._registry.list(),
+                    should_abort=should_abort,
                 )
-            except DeadlineExceeded:
+            except DeadlineExceeded as exc:
+                state.llm_attempts.extend(exc.attempt_log)
                 state.status = AgentStatus.TIMEOUT
                 break
             except LLMCallFailed as exc:
+                state.llm_attempts.extend(exc.attempt_log)
                 state.status = AgentStatus.LLM_FAILED
                 state.error = str(exc)
                 break
 
-            state.usage.record(extract_usage(response))
-            state.conversation.extend(response.output)
+            state.llm_attempts.extend(response.attempts)
+            state.usage.record(response.usage)
+            state.conversation.append(assistant_message(response))
 
-            if not tool_calls:
-                state.final_response = response.output_text
+            if not response.tool_calls:
+                state.final_response = response.text
                 state.status = AgentStatus.COMPLETED
                 break
 
             if self._token_budget_exhausted(state):
                 break
 
-            self._process_tool_calls(tool_calls, state, guard)
+            self._process_tool_calls(
+                list(response.tool_calls), state, guard, malformed
+            )
 
             state.iteration += 1
 
@@ -146,11 +148,18 @@ class AgentLoop:
         tool_calls: list[ToolCall],
         state: AgentState,
         guard: LoopGuard | None,
+        malformed: ConsecutiveCounter,
     ) -> None:
         for tool_call in tool_calls:
             if tool_call.parse_error is not None:
                 self._record_parse_failure(tool_call, state)
+                if malformed.failure():
+                    state.status = AgentStatus.LOOP_DETECTED
+                    state.error = "Too many consecutive malformed tool calls"
+                    return
                 continue
+
+            malformed.reset()
 
             if guard is not None:
                 fp = call_fingerprint(tool_call.tool_name, tool_call.arguments)
@@ -184,11 +193,9 @@ class AgentLoop:
             )
 
             state.conversation.append(
-                {
-                    "type": "function_call_output",
-                    "call_id": tool_call.call_id,
-                    "output": json.dumps(output, default=str),
-                }
+                tool_result_message(
+                    tool_call.call_id, json.dumps(output, default=str)
+                )
             )
 
     def _record_parse_failure(self, tool_call: ToolCall, state: AgentState) -> None:
@@ -205,9 +212,8 @@ class AgentLoop:
             )
         )
         state.conversation.append(
-            {
-                "type": "function_call_output",
-                "call_id": tool_call.call_id,
-                "output": json.dumps({"success": False, "error": error}),
-            }
+            tool_result_message(
+                tool_call.call_id,
+                json.dumps({"success": False, "error": error}),
+            )
         )

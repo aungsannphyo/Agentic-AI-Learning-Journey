@@ -5,7 +5,7 @@ import pytest
 
 from app.agent import AgentLoop, AgentStatus
 from app.agent.cost import ModelPricing, TokenBudget, UsageTracker
-from app.agent.usage import Usage, extract_usage
+from app.llm.types import Usage, extract_usage
 from app.llm import FakeLLMClient, FakeResponse
 from app.tools import (
     ListFilesTool, ReadFileTool, SearchTextTool,

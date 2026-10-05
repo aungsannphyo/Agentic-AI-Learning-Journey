@@ -1,15 +1,24 @@
-from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
+from typing import Any, Protocol
+
+from app.tools import Tool
+
+from .types import LLMResponse
 
 
-class LLMClient(ABC):
-    """Provider-independent interface for language model clients."""
+class LLMClient(Protocol):
+    """Provider-independent contract used by the agent loop.
 
-    @abstractmethod
-    def ask(
+    messages are provider-neutral (see app.llm.types message helpers).
+    should_abort is consulted only by retry layers; plain provider
+    clients accept and ignore it.
+    """
+
+    def complete(
         self,
         *,
-        system_prompt: str,
-        user_prompt: str,
-    ) -> str:
-        """Send a prompt to the LLM and return generated text."""
-        raise NotImplementedError
+        messages: list[dict[str, Any]],
+        tools: Sequence[Tool],
+        should_abort: Callable[[], bool] | None = None,
+    ) -> LLMResponse:
+        ...
