@@ -1,9 +1,17 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
+from .schema_utils import strict_json_schema
+
 
 class Tool(ABC):
-    """Base abstraction for all agent tools."""
+    """Base abstraction for all agent tools.
+
+    A tool declares its argument model ONCE (args_model). Both the
+    model-facing JSON schema and runtime validation derive from it.
+    """
 
     @property
     @abstractmethod
@@ -19,9 +27,14 @@ class Tool(ABC):
 
     @property
     @abstractmethod
-    def input_schema(self) -> dict[str, Any]:
-        """JSON Schema describing the tool's input."""
+    def args_model(self) -> type[BaseModel]:
+        """Pydantic model describing and validating the tool's input."""
         raise NotImplementedError
+
+    @property
+    def input_schema(self) -> dict[str, Any]:
+        """Model-facing JSON Schema, derived from args_model."""
+        return strict_json_schema(self.args_model)
 
     @abstractmethod
     def run(self, arguments: dict[str, Any]) -> Any:

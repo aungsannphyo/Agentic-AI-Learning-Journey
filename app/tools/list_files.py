@@ -1,6 +1,7 @@
 from typing import Any
 
 from .base import Tool
+from .schemas import ListFilesArgs
 from .workspace import Workspace
 
 
@@ -22,21 +23,8 @@ class ListFilesTool(Tool):
         )
 
     @property
-    def input_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": (
-                        "Workspace-relative directory path. "
-                        "Use an empty string for the workspace root."
-                    ),
-                },
-            },
-            "required": ["path"],
-            "additionalProperties": False,
-        }
+    def args_model(self) -> type[ListFilesArgs]:
+        return ListFilesArgs
 
     def run(self, arguments: dict[str, Any]) -> list[str]:
         path = arguments["path"]

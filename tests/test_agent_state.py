@@ -22,15 +22,6 @@ def test_agent_state_completed():
     assert state.final_response == "Done."
 
 
-def test_agent_state_failed():
-    state = AgentState(
-        status=AgentStatus.FAILED,
-        error="Tool execution failed.",
-    )
-
-    assert state.is_finished is True
-    assert state.error == "Tool execution failed."
-
 
 def test_agent_state_max_iterations():
     state = AgentState(

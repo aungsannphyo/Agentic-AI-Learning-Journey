@@ -11,13 +11,14 @@ Test C — Loop detected         → AgentStatus.LOOP_DETECTED
 Test D — Wall-clock timeout    → AgentStatus.TIMEOUT
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
 from app.agent import (
     AgentLoop,
     AgentStatus,
-    BudgetTracker,
+    Clock,
     LoopGuard,
     RuntimeBudget,
 )
@@ -65,8 +66,9 @@ def _make_loop(
     fake_llm: FakeLLMClient,
     *,
     max_iterations: int = 10,
-    budget: BudgetTracker | None = None,
-    loop_guard: LoopGuard | None = None,
+    runtime_budget: RuntimeBudget | None = None,
+    clock: Clock | None = None,
+    loop_guard_factory: Callable[[], LoopGuard] | None = None,
 ) -> AgentLoop:
     workspace = Workspace(Path.cwd())
     registry = ToolRegistry()
@@ -80,8 +82,9 @@ def _make_loop(
         registry=registry,
         executor=executor,
         max_iterations=max_iterations,
-        budget=budget,
-        loop_guard=loop_guard,
+        runtime_budget=runtime_budget,
+        clock=clock,
+        loop_guard_factory=loop_guard_factory,
     )
 
 
@@ -188,8 +191,11 @@ def test_guard_c_loop_detected() -> None:
         ],
     )
 
-    guard = LoopGuard(max_repeated_calls=3)
-    loop = _make_loop(fake_llm, max_iterations=10, loop_guard=guard)
+    loop = _make_loop(
+        fake_llm,
+        max_iterations=10,
+        loop_guard_factory=lambda: LoopGuard(max_repeated_calls=3),
+    )
     state = loop.run("Read the same file.")
 
     assert state.status == AgentStatus.LOOP_DETECTED
@@ -212,10 +218,6 @@ def test_guard_d_wall_clock_timeout() -> None:
     No real sleep() is used anywhere.
     """
     clock = FakeClock(value=0.0)
-    budget = BudgetTracker(
-        budget=RuntimeBudget(max_wall_time_seconds=10.0),
-        clock=clock,
-    )
 
     fake_llm = FakeLLMClient(
         response="unreachable",
@@ -239,7 +241,12 @@ def test_guard_d_wall_clock_timeout() -> None:
         ],
     )
 
-    loop = _make_loop(fake_llm, max_iterations=10, budget=budget)
+    loop = _make_loop(
+        fake_llm,
+        max_iterations=10,
+        runtime_budget=RuntimeBudget(max_wall_time_seconds=10.0),
+        clock=clock,
+    )
 
     # Wrap respond_with_tools to advance clock after iteration 0
     call_count = [0]

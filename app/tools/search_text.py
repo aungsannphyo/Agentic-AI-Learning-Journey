@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from .base import Tool
+from .schemas import SearchTextArgs
 from .workspace import Workspace
 
 
@@ -31,25 +32,8 @@ class SearchTextTool(Tool):
         )
 
     @property
-    def input_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Text to search for.",
-                },
-                "path": {
-                    "type": "string",
-                    "description": (
-                        "Workspace-relative directory or file. "
-                        "Use an empty string for the workspace root."
-                    ),
-                },
-            },
-            "required": ["query", "path"],
-            "additionalProperties": False,
-        }
+    def args_model(self) -> type[SearchTextArgs]:
+        return SearchTextArgs
 
     def run(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
         query = arguments["query"]

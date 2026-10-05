@@ -1,6 +1,7 @@
 from typing import Any
 
 from .base import Tool
+from .schemas import ReadFileArgs
 from .workspace import Workspace
 
 
@@ -28,18 +29,8 @@ class ReadFileTool(Tool):
         )
 
     @property
-    def input_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Workspace-relative file path.",
-                },
-            },
-            "required": ["path"],
-            "additionalProperties": False,
-        }
+    def args_model(self) -> type[ReadFileArgs]:
+        return ReadFileArgs
 
     def run(self, arguments: dict[str, Any]) -> dict[str, Any]:
         path = arguments["path"]

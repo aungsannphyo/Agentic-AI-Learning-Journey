@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from .cost import UsageTracker
 from .history import ExecutionHistory
 
 
@@ -11,21 +12,19 @@ class AgentStatus(str, Enum):
     MAX_ITERATIONS = "max_iterations"
     TIMEOUT = "timeout"
     LOOP_DETECTED = "loop_detected"
-    FAILED = "failed"
+    TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
+    LLM_FAILED = "llm_failed"
 
 
 @dataclass
 class AgentState:
-    conversation: list[dict[str, Any]] = field(
-        default_factory=list
-    )
+    conversation: list[dict[str, Any]] = field(default_factory=list)
     iteration: int = 0
     status: AgentStatus = AgentStatus.RUNNING
     final_response: str | None = None
     error: str | None = None
-    history: ExecutionHistory = field(
-        default_factory=ExecutionHistory
-    )
+    history: ExecutionHistory = field(default_factory=ExecutionHistory)
+    usage: UsageTracker = field(default_factory=UsageTracker)
 
     @property
     def is_finished(self) -> bool:

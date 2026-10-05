@@ -1,8 +1,18 @@
+import json
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from app.agent import AgentLoop
+from app.agent import (
+    AgentLoop,
+    LoopGuard,
+    ModelPricing,
+    RuntimeBudget,
+    TokenBudget,
+)
+from app.agent.resilient_client import ResilientClient
+from app.agent.retry import RetryPolicy
 from app.llm import OpenAIClient
 from app.tools import (
     ListFilesTool,
@@ -14,62 +24,78 @@ from app.tools import (
 )
 
 
-def build_registry(
-    workspace: Workspace,
-) -> ToolRegistry:
+def build_registry(workspace: Workspace) -> ToolRegistry:
     registry = ToolRegistry()
-
-    registry.register(
-        ListFilesTool(workspace)
-    )
-    registry.register(
-        ReadFileTool(workspace)
-    )
-    registry.register(
-        SearchTextTool(workspace)
-    )
-
+    registry.register(ListFilesTool(workspace))
+    registry.register(ReadFileTool(workspace))
+    registry.register(SearchTextTool(workspace))
     return registry
+
+
+def pricing_from_env() -> ModelPricing | None:
+    raw_in = os.getenv("MODEL_INPUT_USD_PER_MTOK")
+    raw_out = os.getenv("MODEL_OUTPUT_USD_PER_MTOK")
+    if not raw_in or not raw_out:
+        return None
+    return ModelPricing(float(raw_in), float(raw_out))
 
 
 def main() -> None:
     load_dotenv()
 
-    workspace = Workspace(
-        Path.cwd()
+    workspace = Workspace(Path.cwd())
+    registry = build_registry(workspace)
+    executor = ToolExecutor(registry)
+
+    runtime_budget = RuntimeBudget(
+        max_iterations=10,
+        max_wall_time_seconds=120.0,
+        per_call_timeout_seconds=30.0,
     )
 
-    registry = build_registry(
-        workspace
-    )
-
-    executor = ToolExecutor(
-        registry
-    )
-
-    client = OpenAIClient(
+    inner = OpenAIClient(
         system_prompt=(
             "You are a software engineering agent. "
             "Use the available tools to inspect the workspace. "
             "Only use workspace-relative paths. "
             "Do not invent file contents."
         ),
+        timeout_seconds=runtime_budget.per_call_timeout_seconds,
     )
+
+    client = ResilientClient(inner, RetryPolicy(max_attempts=3))
 
     agent = AgentLoop(
         client=client,
         registry=registry,
         executor=executor,
-        max_iterations=10,
+        max_iterations=runtime_budget.max_iterations,
+        runtime_budget=runtime_budget,
+        loop_guard_factory=lambda: LoopGuard(max_repeated_calls=3),
+        token_budget=TokenBudget(
+            max_total_tokens=int(os.getenv("AGENT_MAX_TOTAL_TOKENS", "50000"))
+        ),
+        pricing=pricing_from_env(),
     )
 
     state = agent.run(
-        "Explain the app directory and "
-        "identify the main agent loop file."
+        "Explain the app directory and identify the main agent loop file."
     )
 
     print("\n=== Final Response ===\n")
     print(state.final_response)
+
+    print(f"\n=== Status: {state.status.value} ===")
+    if state.error:
+        print(state.error)
+
+    if client.attempt_log:
+        print("\n=== LLM Retry Log ===\n")
+        for rec in client.attempt_log:
+            print(rec)
+
+    print("\n=== Usage Report ===\n")
+    print(json.dumps(state.usage.report(), indent=2))
 
     print("\n=== Execution History ===\n")
     print(state.history.to_json())

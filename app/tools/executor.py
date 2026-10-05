@@ -1,8 +1,11 @@
 from time import perf_counter
 from typing import Any
 
+from pydantic import ValidationError
+
 from .execution import ToolExecution
 from .registry import ToolRegistry
+from .validation import format_validation_error_json
 
 
 class ToolExecutor:
@@ -19,19 +22,33 @@ class ToolExecutor:
     ) -> ToolExecution:
         started_at = perf_counter()
 
+        def elapsed_ms() -> float:
+            return (perf_counter() - started_at) * 1000
+
         try:
             tool = self._registry.get(tool_name)
 
-            result = tool.run(arguments)
+            try:
+                validated = tool.args_model.model_validate(
+                    arguments
+                ).model_dump()
+            except ValidationError as exc:
+                return ToolExecution(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    result=None,
+                    error=format_validation_error_json(tool_name, exc),
+                    duration_ms=elapsed_ms(),
+                )
+
+            result = tool.run(validated)
 
             return ToolExecution(
                 tool_name=tool_name,
                 arguments=arguments,
                 result=result,
                 error=None,
-                duration_ms=(
-                    perf_counter() - started_at
-                ) * 1000,
+                duration_ms=elapsed_ms(),
             )
 
         except Exception as exc:  # noqa: BLE001
@@ -40,7 +57,5 @@ class ToolExecutor:
                 arguments=arguments,
                 result=None,
                 error=str(exc),
-                duration_ms=(
-                    perf_counter() - started_at
-                ) * 1000,
+                duration_ms=elapsed_ms(),
             )

@@ -5,8 +5,9 @@ class ToolArgs(BaseModel):
     """
     Base class for all tool argument models.
 
-    Tool arguments are treated as untrusted input coming from
-    the LLM and therefore use strict validation rules.
+    Fields here are exactly what the MODEL may choose. Budget/safety
+    limits (max_bytes, max_results, ...) are NOT model-controlled; they
+    are tool configuration.
     """
 
     model_config = ConfigDict(
@@ -16,47 +17,34 @@ class ToolArgs(BaseModel):
 
 
 class ListFilesArgs(ToolArgs):
-    """
-    Arguments for list_files.
-    """
-
-    path: str = ""
+    path: str = Field(
+        default="",
+        description=(
+            "Workspace-relative directory path. "
+            "Use an empty string for the workspace root."
+        ),
+    )
 
 
 class ReadFileArgs(ToolArgs):
-    """
-    Arguments for read_file.
-    """
-
-    path: str
-    max_bytes: int = Field(
-        default=100_000,
-        gt=0,
-    )
+    path: str = Field(description="Workspace-relative file path.")
 
     @field_validator("path")
     @classmethod
     def validate_path(cls, value: str) -> str:
         if not value:
             raise ValueError("path must not be empty")
-
         return value
 
 
 class SearchTextArgs(ToolArgs):
-    """
-    Arguments for search_text.
-    """
-
-    query: str
-    path: str = ""
-    max_results: int = Field(
-        default=50,
-        gt=0,
-    )
-    max_file_bytes: int = Field(
-        default=100_000,
-        gt=0,
+    query: str = Field(description="Text to search for.")
+    path: str = Field(
+        default="",
+        description=(
+            "Workspace-relative directory or file. "
+            "Use an empty string for the workspace root."
+        ),
     )
 
     @field_validator("query")
@@ -64,5 +52,4 @@ class SearchTextArgs(ToolArgs):
     def validate_query(cls, value: str) -> str:
         if not value:
             raise ValueError("query must not be empty")
-
         return value

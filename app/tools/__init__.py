@@ -1,6 +1,6 @@
-from .argument_registry import ToolArgumentRegistry
 from .base import Tool
 from .call import ToolCall
+from .call_parsing import parse_tool_call
 from .execution import ToolExecution
 from .executor import ToolExecutor
 from .list_files import ListFilesTool
@@ -14,10 +14,10 @@ __all__ = [
     "ReadFileTool",
     "SearchTextTool",
     "Tool",
-    "ToolArgumentRegistry",
     "ToolCall",
     "ToolExecution",
     "ToolExecutor",
     "ToolRegistry",
     "Workspace",
+    "parse_tool_call",
 ]

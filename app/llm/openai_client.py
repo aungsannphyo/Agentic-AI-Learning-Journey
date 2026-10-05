@@ -1,10 +1,9 @@
-import json
 import os
 from typing import Any
 
 from openai import OpenAI
 
-from app.tools import Tool, ToolCall
+from app.tools import Tool, ToolCall, parse_tool_call
 
 from .client import LLMClient
 from .openai_tools import to_openai_tool
@@ -19,10 +18,14 @@ class OpenAIClient(LLMClient):
         model: str | None = None,
         temperature: float | None = None,
         system_prompt: str | None = None,
+        timeout_seconds: float | None = None,
+
     ) -> None:
         self._client = OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
             base_url="https://api.groq.com/openai/v1",
+            timeout=timeout_seconds,
+            max_retries=0,
         )
 
         self._model = model or os.getenv(
@@ -58,58 +61,6 @@ class OpenAIClient(LLMClient):
 
         return response.output_text
 
-    def ask_with_tools(
-        self,
-        *,
-        user_prompt: str,
-        tools: list[Tool],
-    ) -> tuple[Any, list[ToolCall]]:
-        response = self._client.responses.create(
-            model=self._model,
-            instructions=self._system_prompt,
-            input=user_prompt,
-            tools=[
-                to_openai_tool(tool)
-                for tool in tools
-            ],
-            temperature=self._temperature,
-        )
-
-        tool_calls: list[ToolCall] = []
-
-        for item in response.output:
-            if item.type != "function_call":
-                continue
-
-            tool_calls.append(
-                ToolCall(
-                    call_id=item.call_id,
-                    tool_name=item.name,
-                    arguments=json.loads(item.arguments),
-                )
-            )
-
-        return response, tool_calls
-
-    def continue_with_tool_outputs(
-        self,
-        *,
-        conversation: list[dict[str, Any]],
-        tools: list[Tool],
-    ) -> Any:
-        """Continue a response after executing model-requested tools."""
-
-        return self._client.responses.create(
-            model=self._model,
-            instructions=self._system_prompt,
-            input=conversation,
-            tools=[
-                to_openai_tool(tool)
-                for tool in tools
-            ],
-            temperature=self._temperature,
-        )
-
     def respond_with_tools(
         self,
         *,
@@ -136,10 +87,10 @@ class OpenAIClient(LLMClient):
                 continue
 
             tool_calls.append(
-                ToolCall(
+                parse_tool_call(
                     call_id=item.call_id,
-                    tool_name=item.name,
-                    arguments=json.loads(item.arguments),
+                    name=item.name,
+                    raw_arguments=item.arguments,
                 )
             )
 
