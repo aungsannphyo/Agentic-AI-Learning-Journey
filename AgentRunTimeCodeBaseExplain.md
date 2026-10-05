@@ -62,34 +62,34 @@ Agent Runtime သည် **LangChain, LangGraph, CrewAI, LlamaIndex** ကဲ့�
 
 ```mermaid
 flowchart TD
-    User([User Prompt]) --> Main[app/main.py]
-    Main --> AgentLoop[AgentLoop (app/agent/loop.py)]
+    User([User Prompt]) --> Main["app/main.py"]
+    Main --> AgentLoop["AgentLoop (app/agent/loop.py)"]
     
-    subgraph Per-Run Guards Factory
-        Clock[Clock / RuntimeBudget] --> PerRunBudget[Per-Run BudgetTracker]
-        LoopFactory[loop_guard_factory] --> PerRunGuard[Per-Run LoopGuard]
-        TokenGuard[TokenBudget / UsageTracker]
+    subgraph Guards_Factory ["Per-Run Guards Factory"]
+        Clock["Clock / RuntimeBudget"] --> PerRunBudget["Per-Run BudgetTracker"]
+        LoopFactory["loop_guard_factory"] --> PerRunGuard["Per-Run LoopGuard"]
+        TokenGuard["TokenBudget / UsageTracker"]
     end
 
     AgentLoop --> PerRunBudget
     AgentLoop --> PerRunGuard
     AgentLoop --> TokenGuard
-    AgentLoop --> ResilientClient[ResilientClient (Retry & Error Classifier)]
-    ResilientClient --> OpenAIClient[OpenAIClient (Groq/OpenAI Provider)]
-    OpenAIClient --> CallParsing[app/tools/call_parsing.py]
-    CallParsing --> ToolCallObj[ToolCall (arguments / parse_error)]
+    AgentLoop --> ResilientClient["ResilientClient (Retry & Error Classifier)"]
+    ResilientClient --> OpenAIClient["OpenAIClient (Groq/OpenAI Provider)"]
+    OpenAIClient --> CallParsing["app/tools/call_parsing.py"]
+    CallParsing --> ToolCallObj["ToolCall (arguments / parse_error)"]
     
-    subgraph Tool Subsystem (Single Source of Truth)
-        ToolArgsModel[Tool.args_model (Pydantic Args)]
-        StrictSchema[strict_json_schema()]
+    subgraph Tool_Subsystem ["Tool Subsystem (Single Source of Truth)"]
+        ToolArgsModel["Tool.args_model (Pydantic Args)"]
+        StrictSchema["strict_json_schema()"]
         ToolArgsModel --> StrictSchema
-        StrictSchema --> ToolInputSchema[Tool.input_schema]
-        ToolRegistry[ToolRegistry]
-        ToolExecutor[ToolExecutor (Mandatory Validation)]
-        Workspace[Workspace Boundary Guard]
-        ListFiles[ListFilesTool]
-        ReadFile[ReadFileTool]
-        SearchText[SearchTextTool]
+        StrictSchema --> ToolInputSchema["Tool.input_schema"]
+        ToolRegistry["ToolRegistry"]
+        ToolExecutor["ToolExecutor (Mandatory Validation)"]
+        Workspace["Workspace Boundary Guard"]
+        ListFiles["ListFilesTool"]
+        ReadFile["ReadFileTool"]
+        SearchText["SearchTextTool"]
     end
 
     ToolArgsModel --> ToolExecutor
@@ -99,8 +99,8 @@ flowchart TD
     ToolRegistry --> ListFiles & ReadFile & SearchText
     ListFiles & ReadFile & SearchText --> Workspace
     
-    ToolExecutor --> History[ExecutionHistory]
-    AgentLoop --> AgentState[AgentState (Conversation, Status, Usage)]
+    ToolExecutor --> History["ExecutionHistory"]
+    AgentLoop --> AgentState["AgentState (Conversation, Status, Usage)"]
 ```
 
 ---
