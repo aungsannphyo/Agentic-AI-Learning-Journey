@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current: Week 2 cleanup complete (Codebase cleanup, test deduplication & docs updated) — next: Step 7 quality gate / tag w2-done, then Week 3 (Tracing & Evals)
+## Current: Week 2 DONE (tag w2-done, 119 tests, ruff+mypy clean) — next: Week 3 Day 1 (trace design)
 
 ## Done
 - W1 D1–D5: LLMClient (ADR-0001), Tool/Registry, native tool calling, AgentLoop,
@@ -40,10 +40,9 @@
   LLMClient Protocol (ABC, ask, respond_with_tools, set_deadline_check removed);
   tests migrated; tests/test_a2_loop.py (3 tests)
   → 117 passed production
-- Cleanup S4: LLMResponse/neutral conversation/stateless ResilientClient/LLMClient Protocol (118 tests)
 - Cleanup S5: live verification (reasoning tokens included in output_tokens;
   max_output_tokens is a hard cap that also eats reasoning; replay of reasoning items OK)
-- Empty final answer => LLM_FAILED (test_empty_final_answer_is_not_completed)
+- Empty final answer => LLM_FAILED (test_empty_final_answer_is_not_completed, 118 tests passed)
 - ADR-0002/0003/0004
 - Live 429 TPM RateLimitError observed and verified: classify_llm_error classified as ErrorKind.TRANSIENT,
   exponential backoff correctly surfaced in AttemptRecord attempt log.
@@ -124,10 +123,10 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 No formal eval yet (Week 3).
 Baseline W2 D5 Exp 1: 6 calls, 5481 in / 1153 out, $0.0015; fixed overhead 301 input tokens (3 tools).
 Cleanup S1 live: 7 calls, 7236 in / 1245 out, $0.0018.
-Input growth driven by tool-output size, not call count. Reasoning-token accounting unverified.
+Input growth driven by tool-output size, not call count. Reasoning tokens verified included in output_tokens (ADR-0002).
 D6 Exp 1 (test-first, before fix): 4 failed (test_garbage_json_arguments_become_observation, test_non_object_arguments_become_observation, test_malformed_calls_do_not_trigger_loop_guard, test_endless_malformed_calls_stop_at_max_iterations), 3 passed.
 D6 Exp 2 (after fix): 7/7 fault injection tests passed; 113 passed total in test suite.
 D6 Exp 3 (live run): completed successfully.
 
 ## Today's goal (next session)
-Step 7 quality gate verification, tag w2-done, then W3 D1 trace design.
+W3 D1 trace design + Retry-After ticket
