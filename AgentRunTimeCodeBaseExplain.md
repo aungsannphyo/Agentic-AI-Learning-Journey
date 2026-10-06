@@ -720,6 +720,7 @@ class OpenAIClient:
         tools: Sequence[Tool],
         should_abort: Callable[[], bool] | None = None,
     ) -> LLMResponse:
+        del should_abort
         response = self._client.responses.create(
             model=self._model,
             instructions=self._system_prompt,
