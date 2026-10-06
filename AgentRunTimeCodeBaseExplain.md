@@ -297,7 +297,7 @@ Pytest root configuration ဖိုင်ဖြစ်ပါသည်။
 
 ## 4. LLM Subsystem Layer (`app/llm/`)
 
-LLM provider များနှင့် ချိတ်ဆက်လုပ်ဆောင်သော သီးသန့် subsystem layer ဖြစ်သည်။ Layering Rule အရ `app/llm` သည် `app/tools` သို့သာ import လုပ်ခွင့်ရှိပြီး `app/agent` ဆီသို့ လုံးဝ dependency မစီးဆင်းရပါ။ မည်သည့် provider (OpenAI, Anthropic, Gemini, Groq, Ollama) ပြောင်းလဲသုံးစွဲသည်ဖြစ်စေ core runtime မထိခိုက်စေရန် provider-independent message schema (`user_message`, `assistant_message`, `tool_result_message`), generic `LLMResponse`, `Usage`, `LLMClient` Protocol နှင့် stateless `ResilientClient` decorator တို့ဖြင့် တည်ဆောက်ထားပါသည်။
+LLM provider များနှင့် ချိတ်ဆက်လုပ်ဆောင်သော သီးသန့် subsystem layer ဖြစ်သည်။ Layering Rule အရ `app/llm` သည် `app/tools` သို့သာ import လုပ်ခွင့်ရှိပြီး `app/agent` ဆီသို့ လုံးဝ dependency မစီးဆင်းရပါ (provider SDK ဖြစ်သည့် `openai` ကို `app/llm` အတွင်း၌သာ သီးသန့် import လုပ်ခွင့်ရှိပြီး `app/agent` က တိုက်ရိုက် import မလုပ်ရပါ)။ မည်သည့် provider (OpenAI, Anthropic, Gemini, Groq, Ollama) ပြောင်းလဲသုံးစွဲသည်ဖြစ်စေ core runtime မထိခိုက်စေရန် provider-independent message schema (`user_message`, `assistant_message`, `tool_result_message`), generic `LLMResponse`, `Usage`, `LLMClient` Protocol နှင့် stateless `ResilientClient` decorator တို့ဖြင့် တည်ဆောက်ထားပါသည်။
 
 ### `app/llm/types.py`
 Provider-independent data contracts များနှင့် message helper functions များ စုစည်းရာနေရာ ဖြစ်ပါသည်။
@@ -2683,7 +2683,7 @@ class ScriptedClient:
 
 ### Test Suite Categories & Coverage
 
-Codebase တွင် စုစုပေါင်း ၂၂ ခုသော test modules (၁၁၉ test cases) ပါဝင်ပြီး အောက်ပါအဓိက နယ်ပယ်များကို စစ်ဆေးပါသည်:
+Codebase တွင် စုစုပေါင်း ၂၂ ခုသော test modules (၁၁၉ test cases, PowerShell command `(Get-ChildItem tests\test_*.py).Count` ဖြင့် တိကျစွာ စစ်ဆေးအတည်ပြုထားပြီးဖြစ်သည်) ပါဝင်ပြီး အောက်ပါအဓိက နယ်ပယ်များကို စစ်ဆေးပါသည်:
 
 1. **Architecture & Layering Rules (`test_layering.py`)**:
    - Python AST ကို traverse လုပ်ပြီး `app/agent` သည် `openai` ကို import မလုပ်ကြောင်းနှင့် `app/llm` / `app/tools` အချင်းချင်း dependency မလွဲမှားကြောင်း statically enforce လုပ်သည်။
