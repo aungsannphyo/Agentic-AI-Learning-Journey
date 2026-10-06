@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
+import openai
 import pytest
 
 from app.llm import (
@@ -19,18 +21,8 @@ from app.llm.types import (
     user_message,
 )
 from app.tools import ListFilesTool, Workspace
+from tests.builders import FakeSDK as _FakeSDK
 from tests.builders import SdkItem, final_response, tool_call_response
-
-
-class _FakeSDK:
-    def __init__(self, response) -> None:
-        self._response = response
-        self.calls: list[dict] = []
-        self.responses = SimpleNamespace(create=self._create)
-
-    def _create(self, **kw):
-        self.calls.append(kw)
-        return self._response
 
 
 def _tools():
@@ -147,9 +139,6 @@ def test_resilient_complete_is_stateless_across_calls() -> None:
 
 
 def test_resilient_complete_deadline_is_a_parameter() -> None:
-    import httpx
-    import openai
-
     req = httpx.Request("POST", "https://example.invalid")
 
     class Timeouts:

@@ -1,5 +1,4 @@
 from pathlib import Path
-from types import SimpleNamespace
 
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, FakeResponse
@@ -12,24 +11,7 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _make_function_call_item(
-    *,
-    call_id: str,
-    name: str,
-    arguments: str,
-) -> SimpleNamespace:
-    """Build a fake LLM output item that looks like a function_call."""
-    return SimpleNamespace(
-        type="function_call",
-        call_id=call_id,
-        name=name,
-        arguments=arguments,
-    )
+from tests.builders import function_call_item as _make_function_call_item
 
 
 def _make_loop(
@@ -89,7 +71,7 @@ def test_agent_loop_completes_after_tool_call() -> None:
     state = loop.run("List files in the workspace.")
 
     assert state.status == AgentStatus.COMPLETED
-    assert "Final answer" in state.final_response
+    assert state.final_response is not None and "Final answer" in state.final_response
     assert state.iteration == 1      # incremented after iteration 0 only
 
     # LLM was called exactly twice

@@ -4,14 +4,7 @@ from app.agent.budget import (
     BudgetTracker,
     RuntimeBudget,
 )
-
-
-class FakeClock:
-    def __init__(self) -> None:
-        self.value = 0.0
-
-    def now(self) -> float:
-        return self.value
+from tests.builders import FakeClock
 
 
 def test_budget_is_not_expired() -> None:

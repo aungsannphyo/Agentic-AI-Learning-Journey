@@ -13,7 +13,6 @@ Test D — Wall-clock timeout    → AgentStatus.TIMEOUT
 
 from collections.abc import Callable
 from pathlib import Path
-from types import SimpleNamespace
 
 from app.agent import (
     AgentLoop,
@@ -31,34 +30,8 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
-
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
-
-class FakeClock:
-    """Manually-advanced clock — no real sleep() needed."""
-
-    def __init__(self, value: float = 0.0) -> None:
-        self.value = value
-
-    def now(self) -> float:
-        return self.value
-
-
-def _make_function_call_item(
-    *,
-    call_id: str,
-    name: str,
-    arguments: str,
-) -> SimpleNamespace:
-    return SimpleNamespace(
-        type="function_call",
-        call_id=call_id,
-        name=name,
-        arguments=arguments,
-    )
+from tests.builders import FakeClock
+from tests.builders import function_call_item as _make_function_call_item
 
 
 def _make_loop(

@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current: Week 2 cleanup Step 6 (docs) — next: Step 7 quality gate, then tag w2-done
+## Current: Week 2 cleanup complete (Codebase cleanup, test deduplication & docs updated) — next: Step 7 quality gate / tag w2-done, then Week 3 (Tracing & Evals)
 
 ## Done
 - W1 D1–D5: LLMClient (ADR-0001), Tool/Registry, native tool calling, AgentLoop,
@@ -47,6 +47,12 @@
 - ADR-0002/0003/0004
 - Live 429 TPM RateLimitError observed and verified: classify_llm_error classified as ErrorKind.TRANSIENT,
   exponential backoff correctly surfaced in AttemptRecord attempt log.
+- W2 Cleanup S6 (Codebase hygiene, test deduplication & docs):
+  - Consolidated duplicate test helpers (FakeClock, FakeSDK, ScriptedClient, function_call_item, usage) into tests/builders.py
+  - Removed redundant local helper implementations and inline mocks across 9 test modules (test_a2_foundations, test_agent_loop, test_budget, test_error_recovery, test_fault_injection, test_integration_pass, test_openai_client, test_runtime_guards, test_tools)
+  - Hoisted inline imports (httpx, openai, DeadlineExceeded, ToolCall) to module level and cleaned up unused imports across tests and app/llm/openai_client.py
+  - Synchronized AgentRunTimeCodeBaseExplain.md: all 35 source code blocks 100% matched with actual implementation; added Section 7 (Test Suite Architecture & Quality Assurance)
+  - Full automated verification gate: 119/119 tests passed in 0.90s, mypy clean (34 files); OpenAIClient should_abort wired
 
 ## Code state
 app/agent/loop.py        AgentLoop(client: LLMClient, registry, executor, max_iterations, runtime_budget, clock,
@@ -64,7 +70,7 @@ app/llm/retry.py         RetryPolicy, ErrorKind, RetryDecision
 app/llm/llm_errors.py    classify_llm_error (unknown => PERMANENT)
 app/llm/resilient_client.py  ResilientClient(inner, policy, sleep, classify) - completely stateless
 app/llm/types.py         AttemptRecord, LLMResponse, Usage, extract_usage, user_message, assistant_message, tool_result_message
-app/llm/openai_client.py OpenAIClient: complete() with _to_openai_input & _dump_item
+app/llm/openai_client.py OpenAIClient: complete(messages, tools, should_abort) with _to_openai_input & _dump_item
 app/llm/fake_client.py   FakeLLMClient: complete(), FakeResponse
 app/tools/base.py        Tool: name, description, args_model (abstract), input_schema (derived), run(dict)
 app/tools/schema_utils.py  strict_json_schema(model)
@@ -74,6 +80,8 @@ app/tools/executor.py    ToolExecutor(registry): mandatory validation via tool.a
 app/tools/validation.py  format_validation_error(_json)
 app/tools/call.py        ToolCall(call_id, tool_name, arguments, parse_error=None)
 app/tools/call_parsing.py  parse_tool_call(call_id, name, raw_arguments) -> ToolCall (never raises)
+tests/builders.py        Centralized shared test fixtures: FakeClock, FakeSDK, ScriptedClient, function_call_item, usage, make_llm_response
+AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architecture reference; 100% synchronized with codebase (Sections 1-8)
 Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
@@ -122,4 +130,4 @@ D6 Exp 2 (after fix): 7/7 fault injection tests passed; 113 passed total in test
 D6 Exp 3 (live run): completed successfully.
 
 ## Today's goal (next session)
-A2 prep: internal LLMResponse type + serializable conversation, then W3 D1 trace design.
+Step 7 quality gate verification, tag w2-done, then W3 D1 trace design.

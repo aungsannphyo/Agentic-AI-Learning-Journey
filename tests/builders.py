@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
-from app.llm import FakeResponse, LLMResponse
+from app.llm import FakeResponse, LLMResponse, extract_usage
 
 
 class SdkItem:
@@ -51,3 +51,63 @@ def tool_call_response(
 
 def final_response(text: str = "done") -> FakeResponse:
     return FakeResponse(output_text=text, output=[], usage=usage())
+
+
+def function_call_item(
+    *,
+    call_id: str,
+    name: str,
+    arguments: str,
+) -> SimpleNamespace:
+    """Build a fake LLM output item that looks like a function_call."""
+    return SimpleNamespace(
+        type="function_call",
+        call_id=call_id,
+        name=name,
+        arguments=arguments,
+    )
+
+
+class FakeClock:
+    """Manually-advanced clock for deterministic tests without sleep()."""
+
+    def __init__(self, value: float = 0.0) -> None:
+        self.value = value
+
+    def now(self) -> float:
+        return self.value
+
+
+class FakeSDK:
+    """Fake provider SDK for testing OpenAIClient complete()."""
+
+    def __init__(self, response: Any) -> None:
+        self._response = response
+        self.calls: list[dict[str, Any]] = []
+        self.responses = SimpleNamespace(create=self._create)
+
+    def _create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return self._response
+
+
+class ScriptedClient:
+    """Raises or returns items from a preconfigured script, one per call."""
+
+    def __init__(self, script: list[Any]) -> None:
+        self._script = list(script)
+        self.calls = 0
+
+    def complete(self, *, messages: Any, tools: Any, should_abort: Any = None) -> Any:
+        self.calls += 1
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        if isinstance(item, FakeResponse):
+            return LLMResponse(
+                text=item.output_text,
+                tool_calls=(),
+                usage=extract_usage(item),
+            )
+        return item
+

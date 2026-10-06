@@ -37,7 +37,8 @@ class OpenAIClient:
             timeout=timeout_seconds,
             max_retries=0,
         )
-        self._model: str = (model or os.getenv("OPENAI_MODEL")) or "openai/gpt-oss-120b"
+        self._model: str = (model or os.getenv(
+            "OPENAI_MODEL")) or "openai/gpt-oss-120b"
         self._temperature = (
             temperature
             if temperature is not None

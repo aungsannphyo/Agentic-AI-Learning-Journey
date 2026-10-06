@@ -46,8 +46,12 @@
    - [`app/agent/state.py`](#appagentstatepy)
    - [`app/agent/loop.py`](#appagentlooppy)
    - [`app/agent/__init__.py`](#appagent__init__py)
-   - [Experiments: Structured Output Family (`experiments/week2_structured_output/`)](#experiments-structured-output-family)
-7. [Core Design Principles & Takeaways](#7-core-design-principles--takeaways)
+   - [Historical Note: Structured Output Explorations (`experiments/`)](#historical-note-structured-output-explorations-experiments)
+7. [Test Suite Architecture & Quality Assurance (`tests/`)](#7-test-suite-architecture--quality-assurance-tests)
+   - [`tests/builders.py`](#testsbuilderspy)
+   - [Test Suite Categories & Coverage](#test-suite-categories--coverage)
+   - [Quality Automation & Tooling](#quality-automation--tooling)
+8. [Core Design Principles & Takeaways](#8-core-design-principles--takeaways)
 
 ---
 
@@ -58,8 +62,9 @@ Agent Runtime သည် **LangChain, LangGraph, CrewAI, LlamaIndex** ကဲ့�
 ### Architectural Layering Rules:
 Codebase သည် အောက်ပါ strict dependency flow အတိုင်း စီးဆင်းပြီး unit tests (`tests/test_layering.py`) ဖြင့် ကာကွယ်ထားပါသည်:
 - **`app/agent` -> `app/llm` -> `app/tools`**
-- **Rule 1**: `app/agent` သည် provider SDK (`openai`) ကို လုံးဝ import မလုပ်ရ။
-- **Rule 2**: `app/llm` သည် `app/agent` ကို လုံးဝ import မလုပ်ရ။
+- **Rule 1**: `app/agent` သည် provider SDK (`openai`) ကို import မလုပ်ရ။
+- **Rule 2**: `app/llm` သည် `app/agent` ကို import မလုပ်ရ။
+- **Rule 3**: `app/tools` သည် `app/agent` သို့မဟုတ် `app/llm` ကို import မလုပ်ရ။
 - Conversation history သည် provider-neutral plain dict list ဖြစ်ပြီး provider format ပြောင်းလဲခြင်းများကို `app/llm/openai_client.py` အတွင်း၌သာ သီးသန့် ပြုလုပ်သည်။
 
 ### System Flowchart
@@ -204,14 +209,22 @@ def main() -> None:
     inner = OpenAIClient(
         system_prompt=(
             "You are a software engineering agent. "
-            "Use the available tools to inspect the workspace. "
+            "You must ONLY call the tools explicitly provided: list_files, read_file, search_text. "
+            "Never use any namespace prefixes or tools not defined (such as repo_browser). "
             "Only use workspace-relative paths. "
             "Do not invent file contents."
         ),
         timeout_seconds=runtime_budget.per_call_timeout_seconds,
     )
 
-    client = ResilientClient(inner, RetryPolicy(max_attempts=3))
+    client = ResilientClient(
+        inner,
+        RetryPolicy(
+            max_attempts=5,
+            base_delay_seconds=3.0,
+            max_delay_seconds=25.0,
+        ),
+    )
 
     agent = AgentLoop(
         client=client,
@@ -259,9 +272,9 @@ if __name__ == "__main__":
 - `main()`:
   1. `load_dotenv()` ဖြင့် `.env` ဖိုင်မှ environment variables များကို load လုပ်သည်။
   2. လက်ရှိ directory (`Path.cwd()`) ဖြင့် `Workspace` sandbox boundary ကို သတ်မှတ်သည်။
-  3. `ToolRegistry` ကို `ToolExecutor(registry)` ထဲသို့ ထည့်သွင်းသည် (`ToolArgumentRegistry` ကို ဖျက်လိုက်ပြီးဖြစ်၍ validation သည် tool တစ်ခုချင်းစီ၏ `args_model` မှတစ်ဆင့် mandatory အလိုအလျောက် စစ်ဆေးသည်)။
+  3. `ToolRegistry` ကို `ToolExecutor(registry)` ထဲသို့ ထည့်သွင်းသည် (validation သည် tool တစ်ခုချင်းစီ၏ `args_model` မှတစ်ဆင့် mandatory အလိုအလျောက် စစ်ဆေးသည်)။
   4. `RuntimeBudget` ဖြင့် wall-clock စက္ကန့် ၁၂၀၊ call တစ်ခုလျှင် ၃၀ စက္ကန့် သတ်မှတ်သည် (`max_iterations` ကို `AgentLoop` ကသာ single source of truth အဖြစ် သီးသန့် ကိုင်တွယ်သည်)။
-  5. `OpenAIClient` ကို socket timeout ဖြင့် initialize လုပ်ပြီး `ResilientClient` ဖြင့် wrap လုပ်ကာ retry policy (၃ ကြိမ်အထိ) သတ်မှတ်သည်။ `ResilientClient` နှင့် `RetryPolicy` တို့သည် provider layer (`app.llm`) သို့ ပြောင်းရွှေ့ပြီးဖြစ်၍ layering rule မှန်ကန်သည်။
+  5. `OpenAIClient` ကို socket timeout ဖြင့် initialize လုပ်ပြီး `ResilientClient` ဖြင့် wrap လုပ်ကာ exponential backoff retry policy (အများဆုံး ၅ ကြိမ်အထိ၊ base delay 3.0s၊ max delay 25.0s) သတ်မှတ်သည်။ System prompt တွင်လည်း namespace prefix ပါသော မရှိသည့် tool များ (ဥပမာ `repo_browser.list_files`) ကို မခေါ်ဘဲ ပေးထားသော tools သာ အတိအကျ ခေါ်ရန် တင်းကျပ်စွာ ကန့်သတ်ထားသည်။
   6. `AgentLoop` ကို `max_iterations=10`၊ `runtime_budget` နှင့် `loop_guard_factory=lambda: LoopGuard(block_on_nth_call=3)` ပေးပို့ကာ initialize လုပ်သည်။
   7. ရရှိလာသော `AgentState` မှ Final Response, Status, `state.llm_attempts` မှ LLM Retry Log, Token Usage Report နှင့် Tool Execution History များကို Terminal တွင် print ထုတ်ပေးသည်။
 
@@ -444,7 +457,7 @@ class DeadlineExceeded(Exception):
 
 #### အသေးစိတ် ရှင်းလင်းချက်:
 - `LLMCallFailed`: LLM ဆာဗာသို့ ချိတ်ဆက်မှု permanent error ဖြစ်ခြင်း သို့မဟုတ် retry budget အကြိမ်ရေပြည့်သွားသည့်အခါ ပစ်သော exception ဖြစ်သည်။ ယခင် run ကြိုးပမ်းမှုမှတ်တမ်း `attempt_log` ပါရှိသည်။
-- `DeadlineExceeded`: Retry delay မအိပ်မီ run deadline စစ်ဆေးရာတွင် runtime budget သတ်မှတ်ချိန် ကုန်ဆုံးသွားပါက မလိုအပ်ဘဲ ထပ်မံ retry မလုပ်တော့ဘဲ ချက်ချင်း ရပ်တန့်နိုင်ရန် ပစ်သော exception ဖြစ်သည်။ ဤ exception ပေါ်ပေါက်ပါက Loop က `StopReason.TIMEOUT` အဖြစ် သတ်မှတ်ပြီး state တွင် attempts အားလုံးကို ထိန်းသိမ်းပေးသည်။
+- `DeadlineExceeded`: Retry delay မအိပ်မီ run deadline စစ်ဆေးရာတွင် runtime budget သတ်မှတ်ချိန် ကုန်ဆုံးသွားပါက မလိုအပ်ဘဲ ထပ်မံ retry မလုပ်တော့ဘဲ ချက်ချင်း ရပ်တန့်နိုင်ရန် ပစ်သော exception ဖြစ်သည်။ ဤ exception ပေါ်ပေါက်ပါက Loop က `AgentStatus.TIMEOUT` အဖြစ် သတ်မှတ်ပြီး state တွင် attempts အားလုံးကို ထိန်းသိမ်းပေးသည်။
 
 ---
 
@@ -632,6 +645,15 @@ from .openai_tools import to_openai_tool
 from .types import LLMResponse, extract_usage
 
 
+def _function_calls(output: Sequence[Any]) -> list[Any]:
+    """Provider output is untrusted; select by structural `type` tag.
+
+    Typed as Any on purpose: the SDK union is wide and tests use
+    duck-typed fakes, so narrowing by isinstance would couple both.
+    """
+    return [i for i in output if getattr(i, "type", None) == "function_call"]
+
+
 class OpenAIClient:
     """OpenAI Responses API implementation of LLMClient (Groq-compatible)."""
 
@@ -644,13 +666,14 @@ class OpenAIClient:
         timeout_seconds: float | None = None,
         sdk_client: Any | None = None,
     ) -> None:
-        self._client = sdk_client or OpenAI(
+        self._client: Any = sdk_client or OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
             base_url="https://api.groq.com/openai/v1",
             timeout=timeout_seconds,
             max_retries=0,
         )
-        self._model = model or os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
+        self._model: str = (model or os.getenv(
+            "OPENAI_MODEL")) or "openai/gpt-oss-120b"
         self._temperature = (
             temperature
             if temperature is not None
@@ -711,8 +734,7 @@ class OpenAIClient:
                 name=item.name,
                 raw_arguments=item.arguments,
             )
-            for item in response.output
-            if item.type == "function_call"
+            for item in _function_calls(response.output)
         )
 
         return LLMResponse(
@@ -724,11 +746,12 @@ class OpenAIClient:
 ```
 
 #### အသေးစိတ် ရှင်းလင်းချက်:
+- `_function_calls`: Provider output item များသည် wide union type ဖြစ်ပြီး test mock fakes များနှင့် duck-typed ဖြစ်နေသဖြင့် `isinstance` ဖြင့် tight-coupling မဖြစ်စေရန် structural `type == "function_call"` attribute ဖြင့်သာ tool calls များကို filter ခွဲထုတ်ပေးသည်။
 - `sdk_client: Any | None = None`: Dependency injection ကို ထောက်ပံ့ပေးထားသဖြင့် unit tests များတွင် mock SDK ဖြင့် လွယ်ကူစွာ စမ်းသပ်နိုင်သည်။
 - `max_retries=0`: SDK ၏ built-in opaque retry ကို ပိတ်ထားပြီး application layer (`ResilientClient`) မှ deterministic backoff နှင့် deadline awareness ဖြင့် စီမံသည်။
 - `_to_openai_input`: Neutral message structure ကို OpenAI Responses API format (`role: user`, provider items, `type: function_call_output`) သို့ တိကျစွာ convert လုပ်ပေးသည်။
 - `_dump_item`: Provider SDK model items များကို Pydantic `model_dump(mode="json", exclude_none=True)` ဖြင့် plain dict သို့ serialize ပြုလုပ်ပေးသဖြင့် နောက် conversation step တွင် clean JSON အဖြစ် ပြန်လည် replay ပို့ဆောင်နိုင်စေသည်။
-- `complete(...)`: LLM ကို invoke လုပ်ပြီး `LLMResponse` အဖြစ် ပြန်လည်ထုပ်ပိုးပေးသည်။
+- `complete(..., should_abort=None)`: `LLMClient` Protocol နှင့် signature ညီရန် `should_abort` ကို လက်ခံပေမယ့် ignore လုပ်သည် (deadline ကို retry layer `ResilientClient` ကသာ သုံးသည်)။
 
 ---
 
@@ -875,7 +898,7 @@ class ResilientClient:
             try:
                 response = self._inner.complete(messages=messages, tools=tools)
                 return replace(response, attempts=tuple(attempts))
-            except Exception as exc:  # noqa: BLE001 - classified below
+            except Exception as exc:
                 kind = self._classify(exc)
                 decision = self._policy.decide(attempt=attempt, error_kind=kind)
                 attempts.append(
@@ -1476,7 +1499,7 @@ class ToolExecutor:
                 duration_ms=elapsed_ms(),
             )
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return ToolExecution(
                 tool_name=tool_name,
                 arguments=arguments,
@@ -2357,6 +2380,10 @@ class AgentLoop:
             state.conversation.append(assistant_message(response))
 
             if not response.tool_calls:
+                if not response.text.strip():
+                    state.status = AgentStatus.LLM_FAILED
+                    state.error = "Model returned an empty final answer"
+                    break
                 state.final_response = response.text
                 state.status = AgentStatus.COMPLETED
                 break
@@ -2472,6 +2499,8 @@ class AgentLoop:
   - Model က arguments များကို JSON အဖြစ် ထုတ်မပေးနိုင်ပါက `parse_error` အဖြစ် observation ပြန်ပို့ပေးသည်။
   - သို့သော် `ConsecutiveCounter(max_consecutive_malformed=3)` ဖြင့် ဆက်တိုက် ၃ ကြိမ်အထိသာ ခွင့်ပြုပြီး ထိုထက်ကျော်လွန်ပါက infinite parsing loop မှ ကာကွယ်ရန် `LOOP_DETECTED` ဖြင့် ရပ်တန့်သည်။
   - အကယ်၍ valid tool call တစ်ကြိမ် ထွက်ပေါ်လာပါက `malformed.reset()` ဖြင့် counter ကို 0 သို့ ပြန်လည် reset ပြုလုပ်ပေးသည်။
+- **Empty Final Answer Protection**:
+  - Model က tool လည်းမခေါ်ဘဲ whitespace/empty string သာ ပြန်ပို့လာပါက `COMPLETED` အဖြစ် အလွယ်တကူ မသတ်မှတ်ဘဲ `LLM_FAILED` status နှင့် error message ("Model returned an empty final answer") ဖြင့် fail-fast ရပ်တန့်သည်။
 
 ---
 
@@ -2513,26 +2542,192 @@ __all__ = [
 
 ---
 
-### Experiments: Structured Output Family (`experiments/week2_structured_output/`)
-Codebase သန့်ရှင်းရေးနှင့် Single Responsibility စည်းမျဉ်းအရ `app/agent` အတွင်းမှ Structured Output ဆိုင်ရာ modules များကို `experiments/week2_structured_output/` သို့ ပြောင်းရွှေ့ထားပါသည်။
-- **ပြောင်းရွှေ့ထားသော ဖိုင်များ**:
-  - `decision.py` (`Decision`, `DecisionAction` Pydantic models)
-  - `decision_schema.py` (`decision_json_schema`)
-  - `structured_output.py` (`StructuredOutputError`, `parse_prompt_json`, `validate_structured_payload`)
-  - `validation_errors.py` (`format_structured_output_error`)
-  - `decision_recovery.py` (`DecisionRecovery`)
-- **ရည်ရွယ်ချက်**: Production runtime သည် Native Function/Tool Calling (OpenAI Responses API) ကို အဓိက အသုံးပြုပြီး၊ Prompt-based structured JSON output နည်းလမ်းကို သုတေသနနှင့် benchmarking စမ်းသပ်မှုများအတွက် experiment အဖြစ် သီးခြား ထိန်းသိမ်းထားခြင်း ဖြစ်သည်။
-- **Test Verification**: အဆိုပါ experiment files များသည် `pytest experiments -q` (17 passed) ဖြင့် test suite အပြည့်အစုံ အောင်မြင်စွာ စမ်းသပ်ထားဆဲ ဖြစ်ပါသည်။
+### Historical Note: Structured Output Explorations (`experiments/`)
+Codebase ၏ အစောပိုင်း သုတေသနကာလတွင် Prompt-based Structured JSON Output (Pydantic parsing & decision schemas) ကို စမ်းသပ်လေ့လာခဲ့ပြီးနောက်၊ Production Architecture အဖြစ် Native Function/Tool Calling (OpenAI Responses API) ကို အလုံးစုံ ရွေးချယ်အသုံးပြုခဲ့ပါသည်။ ထို့ကြောင့် codebase သန့်ရှင်းရေးနှင့် single responsibility စည်းမျဉ်းအရ အဆိုပါ experiment code များကို production tree မှ ဖယ်ရှားကာ native tool execution pipeline တစ်ခုတည်းပေါ်တွင်သာ အခြေခံထားပါသည်။
 
 ---
 
-## 7. Core Design Principles & Takeaways
+## 7. Test Suite Architecture & Quality Assurance (`tests/`)
+
+Agent Runtime ၏ စိတ်ချယုံကြည်ရမှု၊ strict layering rules နှင့် fault-tolerant behavior များကို test suite တစ်ခုလုံး (118 test cases) ဖြင့် deterministic test suite အဖြစ် တည်ဆောက်ထားပါသည်။ Network API call များ သို့မဟုတ် `time.sleep()` များကို အမှန်တကယ် မသုံးဘဲ mock fakes နှင့် builders များဖြင့် မြန်ဆန်စွာ (1 second အတွင်း) execute လုပ်နိုင်စေရန် ဖွဲ့စည်းထားပါသည်။
+
+### `tests/builders.py`
+Unit test များနှင့် integration test များတွင် duplicate code များ လျှော့ချရန်နှင့် deterministic fakes များ single source of truth အဖြစ် အသုံးပြုနိုင်ရန် ဗဟို test fixture builder ဖြစ်ပါသည်။
+
+#### Source Code:
+```python
+import json
+from types import SimpleNamespace
+from typing import Any
+
+from app.llm import FakeResponse, LLMResponse, extract_usage
+
+
+class SdkItem:
+    """Fake SDK output item that serializes like a pydantic object."""
+
+    def __init__(self, **data) -> None:
+        self._data = data
+        for k, v in data.items():
+            setattr(self, k, v)
+
+    def model_dump(self, **_kw):
+        return dict(self._data)
+
+
+def llm_response(text: str = "ok") -> LLMResponse:
+    return LLMResponse(text=text, tool_calls=(), usage=None)
+
+
+def tool_outputs(messages: list[dict]) -> list[dict]:
+    """Parsed outputs of all tool_result messages."""
+    return [
+        json.loads(m["output"])
+        for m in messages
+        if m.get("kind") == "tool_result"
+    ]
+
+
+def usage(i: int = 1, o: int = 1) -> SimpleNamespace:
+    return SimpleNamespace(input_tokens=i, output_tokens=o)
+
+
+def tool_call_response(
+    call_id: str, name: str, arguments: dict[str, Any] | str
+) -> FakeResponse:
+    raw = arguments if isinstance(arguments, str) else json.dumps(arguments)
+    return FakeResponse(
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call", call_id=call_id, name=name, arguments=raw
+            )
+        ],
+        usage=usage(),
+    )
+
+
+def final_response(text: str = "done") -> FakeResponse:
+    return FakeResponse(output_text=text, output=[], usage=usage())
+
+
+def function_call_item(
+    *,
+    call_id: str,
+    name: str,
+    arguments: str,
+) -> SimpleNamespace:
+    """Build a fake LLM output item that looks like a function_call."""
+    return SimpleNamespace(
+        type="function_call",
+        call_id=call_id,
+        name=name,
+        arguments=arguments,
+    )
+
+
+class FakeClock:
+    """Manually-advanced clock for deterministic tests without sleep()."""
+
+    def __init__(self, value: float = 0.0) -> None:
+        self.value = value
+
+    def now(self) -> float:
+        return self.value
+
+
+class FakeSDK:
+    """Fake provider SDK for testing OpenAIClient complete()."""
+
+    def __init__(self, response: Any) -> None:
+        self._response = response
+        self.calls: list[dict[str, Any]] = []
+        self.responses = SimpleNamespace(create=self._create)
+
+    def _create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return self._response
+
+
+class ScriptedClient:
+    """Raises or returns items from a preconfigured script, one per call."""
+
+    def __init__(self, script: list[Any]) -> None:
+        self._script = list(script)
+        self.calls = 0
+
+    def complete(self, *, messages: Any, tools: Any, should_abort: Any = None) -> Any:
+        self.calls += 1
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        if isinstance(item, FakeResponse):
+            return LLMResponse(
+                text=item.output_text,
+                tool_calls=(),
+                usage=extract_usage(item),
+            )
+        return item
+```
+
+#### အသေးစိတ် ရှင်းလင်းချက်:
+- **`FakeClock`**: Manual `value` advancement ဖြင့် wall-clock timeout budget များကို `time.sleep()` လုံးဝမသုံးဘဲ စက္ကန့်ပိုင်းအတွင်း deterministic စမ်းသပ်နိုင်သည် (Used in `test_budget.py`, `test_runtime_guards.py`)။
+- **`function_call_item`**: `SimpleNamespace(type="function_call", ...)` payload များကို test module အားလုံးတွင် duplicate function ရေးသားစရာမလိုဘဲ တသမတ်တည်း ထုတ်ပေးသည် (Used in `test_agent_loop.py`, `test_runtime_guards.py`, `test_error_recovery.py`)။
+- **`FakeSDK`**: `OpenAIClient` ၏ SDK Responses API interaction, parameter payload များနှင့် serializable items များကို intercept စစ်ဆေးနိုင်သည့် provider test double ဖြစ်သည် (Used in `test_a2_foundations.py`, `test_openai_client.py`)။
+- **`ScriptedClient`**: Scripted sequence (ဥပမာ `RateLimitError`, `APITimeoutError`, `FakeResponse`) များကို sequential အတိုင်း ထုတ်ပေးပြီး transient backoff retry, deadline abort, နှင့် permanent failure flows များကို စမ်းသပ်ပေးသည် (Used in `test_fault_injection.py`, `test_integration_pass.py`)။
+- `ScriptedClient` limitation: `FakeResponse` script item ကို `tool_calls=()` ဖြင့်သာ ပြောင်းပေးသဖြင့် tool call ပါသော response ကို script လုပ်လိုပါက `FakeLLMClient(response_sequence=...)` ကို သုံးရမည်။
+- **`tool_outputs`**: Observation messages list မှ structured JSON tool results များကို unwrap လုပ်ပေးသည့် helper ဖြစ်သည်။
+
+---
+
+### Test Suite Categories & Coverage
+
+Codebase တွင် စုစုပေါင်း ၂၂ ခုသော test modules (၁၁၉ test cases) ပါဝင်ပြီး အောက်ပါအဓိက နယ်ပယ်များကို စစ်ဆေးပါသည်:
+
+1. **Architecture & Layering Rules (`test_layering.py`)**:
+   - Python AST ကို traverse လုပ်ပြီး `app/agent` သည် `openai` ကို import မလုပ်ကြောင်းနှင့် `app/llm` / `app/tools` အချင်းချင်း dependency မလွဲမှားကြောင်း statically enforce လုပ်သည်။
+2. **Loop Orchestration & State (`test_agent_loop.py`, `test_a2_loop.py`, `test_agent_state.py`, `test_per_run_state.py`)**:
+   - Happy path execution, max iteration termination, per-run state isolation နှင့် multi-run တွင် loop guard state မပေါက်ကြားစေရန် (statelessness) စစ်ဆေးသည်။
+3. **Runtime Guards & Budgets (`test_runtime_guards.py`, `test_loop_guard.py`, `test_budget.py`, `test_usage_budget.py`)**:
+   - Loop repetition guard (`block_on_nth_call`), wall-clock expiration, max token budget, cost budget နှင့် fail-closed unrecorded usage semantics များကို စစ်ဆေးသည်။
+4. **Resiliency, Retry & Network Faults (`test_retry.py`, `test_integration_pass.py`)**:
+   - Exponential backoff delay calculation, max delay clamping, max retry budget, transient vs permanent classification (`classify_llm_error`) နှင့် run deadline abort များကို စစ်ဆေးသည်။
+5. **Fault Injection & Malformed Call Recovery (`test_fault_injection.py`, `test_error_recovery.py`)**:
+   - JSONDecodeError arguments, non-object arguments, wrong argument types, consecutive malformed cap (`LOOP_DETECTED`) နှင့် runtime crash မဖြစ်စေဘဲ observation အဖြစ် self-correct လုပ်နိုင်စွမ်းများကို စစ်ဆေးသည်။
+6. **Tool Schemas & Sandboxed Workspace (`test_tools.py`, `test_file_tools.py`, `test_workspace.py`, `test_tools_schemas.py`, `test_schema_derivation.py`, `test_validation_errors.py`)**:
+   - Strict JSON Schema derivation, path traversal rejection (`escapes workspace`), directory listing, file read limits နှင့် validation error observation formatting များကို စစ်ဆေးသည်။
+7. **Provider Integration & Tools Conversion (`test_openai_client.py`, `test_openai_tools.py`, `test_a2_foundations.py`)**:
+   - Internal tool model မှ OpenAI function tool definition သို့ convert လုပ်ခြင်း၊ Responses API input format ပြောင်းလဲခြင်းနှင့် assistant items များကို serializable dict အဖြစ် ထိန်းသိမ်းခြင်းတို့ကို စစ်ဆေးသည်။
+
+---
+
+### Quality Automation & Tooling
+
+Code quality နှင့် reliability ကို အောက်ပါ tooling pipeline ဖြင့် automated စစ်ဆေးထားပါသည်:
+
+```bash
+# 1. Production Test Suite
+.venv/Scripts/pytest
+# Result: 119 passed in ~0.90s
+
+# 2. Strict Linter & Hygiene Check
+.venv/Scripts/ruff check .
+# Result: All checks passed (zero unused imports, zero lint warnings)
+
+# 3. Static Type Analysis
+.venv/Scripts/mypy app
+# Result: Success: no issues found in 34 source files
+```
+
+---
+
+## 8. Core Design Principles & Takeaways
 
 1. **No External Agent Frameworks**:
    - LangChain, LangGraph သို့မဟုတ် အခြား heavy/magic framework များကို မသုံးဘဲ Python core standard libraries နှင့် Official OpenAI SDK ဖြင့်သာ direct implementation ပြုလုပ်ထားသောကြောင့် runtime သည် 100% predictable ဖြစ်ပြီး debug လုပ်ရလွယ်ကူသည်။
 2. **Strict Architectural Layering (Tests-Enforced)**:
    - Dependency များသည် `app/agent` -> `app/llm` -> `app/tools` သို့သာ တရားဝင် စီးဆင်းသည်။
-   - `tests/test_layering.py` ဖြင့် AST verification ပြုလုပ်ထားပြီး Rule 1 (`app/llm` သည် `app/agent` ကို မသုံးရ) နှင့် Rule 2 (`app/tools` သည် `app/agent` သို့မဟုတ် `app/llm` ကို မသုံးရ) တို့ကို အမြဲ enforce လုပ်ထားသည်။
+   - `tests/test_layering.py` ဖြင့် AST verification ပြုလုပ်ထားပြီး Rule 1 (agent → openai မရ)၊ Rule 2 (llm → agent မရ)၊ Rule 3 (tools → agent/llm မရ) တို့ကို အမြဲ enforce လုပ်ထားသည်။
 3. **Stateless Resiliency & Deadline Awareness**:
    - `ResilientClient` သည် retry decorator အဖြစ် လုပ်ဆောင်သော်လည်း state မသိမ်းဆည်းပါ (Stateless). Attempt log များသည် `LLMResponse.attempts` သို့မဟုတ် raised exceptions များပေါ်တွင်သာ လိုက်ပါသွားသည်။
    - Run deadline ကို `should_abort()` callable ဖြင့် dynamic စစ်ဆေးပြီး deadline ကုန်ဆုံးချိန်တွင် retry delay မစောင့်တော့ဘဲ `DeadlineExceeded` ချက်ချင်း fail-fast ပြုလုပ်သည်။
@@ -2551,4 +2746,12 @@ Codebase သန့်ရှင်းရေးနှင့် Single Responsibili
    - Provider က token usage မပို့ပါက `0` မပေးဘဲ `None` သတ်မှတ်ကာ `usage_unreported` အဖြစ် fail-closed ပြုလုပ်ပြီး budget security ကို အာမခံသည်။
 8. **Sandboxed Workspace**:
    - `Workspace.resolve()` သည် path traversal attack များကို root boundary ဖြင့် ကာကွယ်ပေးထားပြီး ပြင်ပ filesystem သို့ မထွက်နိုင်စေရန် တားဆီးထားသည်။
+9. **Known Limits & Design Records**:
+   - Design records: `docs/adr/0001`–`0004` (provider interface, `Tool.args_model`, failure semantics)။
+   - Cost report သည် lower bound ဖြစ်သည် (failed attempt ၏ usage မမြင်ရ၊ cached tokens ကို သီးခြားမတန်ဖိုးဖြတ်)။
+   - `Retry-After` / "try again in Ns" ကို မလေးစားသေး (Week 3 ပထမ ticket)။
+   - `max_output_tokens` မသတ်မှတ်ရသေး၊ `LLMResponse` တွင် `incomplete_reason` မရှိ။
+   - `read_file` က `.env` ကို ဖတ်နိုင်သည် (W7 secrets scrubbing)။
+   - Budget stop ပြီးနောက် conversation တွင် dangling `function_call` ကျန်နိုင်သည် (W12 resume)။
+   - `Tool.run` သည် raw dict ယူဆဲ (typed args → W5)။
 

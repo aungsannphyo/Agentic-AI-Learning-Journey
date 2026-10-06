@@ -51,7 +51,7 @@ class ToolExecutor:
                 duration_ms=elapsed_ms(),
             )
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return ToolExecution(
                 tool_name=tool_name,
                 arguments=arguments,

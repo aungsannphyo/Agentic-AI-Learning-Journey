@@ -7,7 +7,7 @@ import openai
 import pytest
 
 from app.agent import AgentLoop, AgentStatus
-from app.llm import FakeResponse, LLMResponse, extract_usage
+from app.llm import DeadlineExceeded, FakeResponse
 from app.llm.llm_errors import classify_llm_error
 from app.llm.resilient_client import ResilientClient
 from app.llm.retry import ErrorKind, RetryPolicy
@@ -19,6 +19,7 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
+from tests.builders import ScriptedClient
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -34,27 +35,6 @@ def _rate_limit() -> openai.RateLimitError:
 def _bad_request() -> openai.BadRequestError:
     resp = httpx.Response(400, request=_request())
     return openai.BadRequestError("bad request", response=resp, body=None)
-
-
-class ScriptedClient:
-    """Raises/returns items from a script, one per call."""
-
-    def __init__(self, script: list) -> None:
-        self._script = list(script)
-        self.calls = 0
-
-    def complete(self, *, messages, tools, should_abort=None):
-        self.calls += 1
-        item = self._script.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        if isinstance(item, FakeResponse):
-            return LLMResponse(
-                text=item.output_text,
-                tool_calls=(),
-                usage=extract_usage(item),
-            )
-        return item
 
 
 def _ok(text: str = "ok") -> FakeResponse:
@@ -134,8 +114,6 @@ def test_retry_budget_exhausted_ends_llm_failed() -> None:
 
 
 def test_deadline_expiry_during_retry_raises_deadline_exceeded() -> None:
-    from app.llm.errors import DeadlineExceeded
-
     inner = ScriptedClient([_rate_limit(), _ok()])
     client = ResilientClient(
         inner, RetryPolicy(max_attempts=3), sleep=lambda _s: None
@@ -147,8 +125,6 @@ def test_deadline_expiry_during_retry_raises_deadline_exceeded() -> None:
 
 
 def test_loop_maps_deadline_exceeded_to_timeout() -> None:
-    from app.llm.errors import DeadlineExceeded
-
     class RaisesDeadline:
         def complete(self, *, messages, tools, should_abort=None):
             raise DeadlineExceeded("x")
@@ -171,6 +147,7 @@ def test_invalid_args_become_structured_observation_not_execution() -> None:
     )
 
     assert result.success is False
+    assert result.error is not None
     payload = json.loads(result.error)
     assert payload["error_type"] == "tool_argument_validation"
     assert payload["errors"][0]["field"] == "max_bytes"
@@ -188,4 +165,4 @@ def test_unknown_argument_is_rejected_when_validation_enabled() -> None:
     )
 
     assert result.success is False
-    assert "recursive" in result.error
+    assert result.error is not None and "recursive" in result.error

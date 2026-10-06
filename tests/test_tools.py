@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.tools import ListFilesTool, ToolRegistry, Workspace
+from app.tools import ListFilesTool, ToolCall, ToolRegistry, Workspace
 
 
 def test_list_files_tool_lists_directory() -> None:
@@ -74,8 +74,6 @@ def test_registry_rejects_unknown_tool() -> None:
 
 
 def test_tool_call_representation() -> None:
-    from app.tools.call import ToolCall
-
     call = ToolCall(
         call_id="call_123",
         tool_name="list_files",

@@ -9,7 +9,6 @@ Experiment 4  Realistic Exploration Smoke Test (fake LLM)
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, FakeResponse
@@ -21,21 +20,12 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
+from tests.builders import function_call_item as _fc
 from tests.builders import tool_outputs
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _fc(*, call_id: str, name: str, arguments: str) -> SimpleNamespace:
-    """Build a fake function_call output item."""
-    return SimpleNamespace(
-        type="function_call",
-        call_id=call_id,
-        name=name,
-        arguments=arguments,
-    )
 
 
 def _make_loop(

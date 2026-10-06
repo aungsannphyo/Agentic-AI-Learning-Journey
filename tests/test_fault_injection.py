@@ -6,7 +6,7 @@ import httpx
 import openai
 
 from app.agent import AgentLoop, AgentStatus, LoopGuard
-from app.llm import FakeLLMClient, FakeResponse, LLMResponse, ResilientClient, RetryPolicy
+from app.llm import FakeLLMClient, FakeResponse, ResilientClient, RetryPolicy
 from app.tools import (
     ListFilesTool,
     ReadFileTool,
@@ -15,11 +15,9 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
+from tests.builders import ScriptedClient as _Scripted
 from tests.builders import tool_outputs
-
-
-def _usage() -> SimpleNamespace:
-    return SimpleNamespace(input_tokens=1, output_tokens=1)
+from tests.builders import usage as _usage
 
 
 def _call(call_id: str, name: str, raw_args: str) -> FakeResponse:
@@ -165,19 +163,6 @@ def test_valid_call_resets_malformed_counter() -> None:
 
 
 # 5/6. Transient provider faults through the real retry stack
-class _Scripted:
-    def __init__(self, script):
-        self._script = list(script)
-
-    def complete(self, *, messages, tools, should_abort=None):
-        item = self._script.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        if isinstance(item, FakeResponse):
-            return LLMResponse(text=item.output_text, tool_calls=(), usage=None)
-        return item
-
-
 def _req() -> httpx.Request:
     return httpx.Request("POST", "https://example.invalid/v1/responses")
 

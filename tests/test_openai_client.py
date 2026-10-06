@@ -4,18 +4,7 @@ from types import SimpleNamespace
 from app.llm.openai_client import OpenAIClient
 from app.llm.types import user_message
 from app.tools import ListFilesTool, Workspace
-from tests.builders import SdkItem
-
-
-class FakeSDK:
-    def __init__(self, response) -> None:
-        self._response = response
-        self.calls: list[dict] = []
-        self.responses = SimpleNamespace(create=self._create)
-
-    def _create(self, **kwargs):
-        self.calls.append(kwargs)
-        return self._response
+from tests.builders import FakeSDK, SdkItem
 
 
 def _fn_call(call_id: str, name: str, arguments: str) -> SdkItem:
@@ -115,3 +104,31 @@ def test_non_function_items_are_ignored() -> None:
     r = client.complete(messages=[], tools=_tools())
 
     assert [c.call_id for c in r.tool_calls] == ["c1"]
+
+
+def test_openai_client_works_directly_in_agent_loop() -> None:
+    from types import SimpleNamespace
+
+    from app.agent import AgentLoop, AgentStatus, RuntimeBudget
+    from app.tools import ListFilesTool, ToolExecutor, ToolRegistry, Workspace
+
+    sdk_resp = SimpleNamespace(
+        output=[], output_text="done", usage=SimpleNamespace(input_tokens=1, output_tokens=1)
+    )
+    sdk = SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **kw: sdk_resp)
+    )
+    client = OpenAIClient(sdk_client=sdk, model="m", temperature=0.0)
+
+    registry = ToolRegistry()
+    registry.register(ListFilesTool(Workspace(Path.cwd())))
+    agent = AgentLoop(
+        client=client,
+        registry=registry,
+        executor=ToolExecutor(registry),
+        runtime_budget=RuntimeBudget(),  # makes loop pass should_abort
+    )
+
+    state = agent.run("hi")
+
+    assert state.status == AgentStatus.COMPLETED
