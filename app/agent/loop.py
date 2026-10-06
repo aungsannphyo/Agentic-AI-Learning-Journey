@@ -1,8 +1,9 @@
 import json
 from collections.abc import Callable
+from time import perf_counter
 from typing import Any
 
-from app.llm import DeadlineExceeded, LLMCallFailed, LLMClient
+from app.llm import DeadlineExceeded, LLMCallFailed, LLMClient, LLMResponse
 from app.llm.types import assistant_message, tool_result_message, user_message
 from app.tools import ToolCall, ToolExecutor, ToolRegistry
 
@@ -12,6 +13,7 @@ from .cost import ModelPricing, TokenBudget, UsageTracker
 from .history import ExecutionRecord
 from .loop_guard import ConsecutiveCounter, LoopGuard, call_fingerprint
 from .state import AgentState, AgentStatus
+from .trace import TraceRecorder, TraceSink
 
 
 class AgentLoop:
@@ -46,6 +48,7 @@ class AgentLoop:
         token_budget: TokenBudget | None = None,
         pricing: ModelPricing | None = None,
         max_consecutive_malformed: int = 3,
+        trace: TraceSink | None = None,
     ) -> None:
         if (
             token_budget is not None
@@ -66,12 +69,19 @@ class AgentLoop:
         self._token_budget = token_budget
         self._pricing = pricing
         self._max_consecutive_malformed = max_consecutive_malformed
+        self._trace_sink = trace
 
     def run(self, user_prompt: str) -> AgentState:
         state = AgentState(
             conversation=[user_message(user_prompt)],
             usage=UsageTracker(self._pricing),
         )
+        trace = (
+            TraceRecorder(self._trace_sink)
+            if self._trace_sink is not None
+            else None
+        )
+        state.run_id = trace.run_id if trace is not None else None
 
         tracker = (
             BudgetTracker(self._runtime_budget, self._clock)
@@ -86,15 +96,27 @@ class AgentLoop:
         malformed = ConsecutiveCounter(self._max_consecutive_malformed)
         should_abort = tracker.is_expired if tracker is not None else None
 
+        self._emit(
+            trace,
+            "run_started",
+            prompt=user_prompt,
+            max_iterations=self._max_iterations,
+        )
+
         while not state.is_finished:
             if tracker is not None and tracker.is_expired():
                 state.status = AgentStatus.TIMEOUT
+                self._emit(trace, "guard_triggered", guard="timeout",
+                           detail="wall-clock budget expired")
                 break
 
             if state.iteration >= self._max_iterations:
                 state.status = AgentStatus.MAX_ITERATIONS
+                self._emit(trace, "guard_triggered", guard="max_iterations",
+                           detail=f"limit={self._max_iterations}")
                 break
 
+            started = perf_counter()
             try:
                 response = self._client.complete(
                     messages=state.conversation,
@@ -104,13 +126,21 @@ class AgentLoop:
             except DeadlineExceeded as exc:
                 state.llm_attempts.extend(exc.attempt_log)
                 state.status = AgentStatus.TIMEOUT
+                self._emit(trace, "guard_triggered", guard="timeout",
+                           detail="deadline expired while retrying LLM call")
                 break
             except LLMCallFailed as exc:
                 state.llm_attempts.extend(exc.attempt_log)
                 state.status = AgentStatus.LLM_FAILED
                 state.error = str(exc)
+                self._emit(
+                    trace, "llm_call", iteration=state.iteration,
+                    latency_ms=(perf_counter() - started) * 1000,
+                    failed=True, attempts=len(exc.attempt_log),
+                )
                 break
 
+            self._emit_llm_call(trace, state.iteration, started, response)
             state.llm_attempts.extend(response.attempts)
             state.usage.record(response.usage)
             state.conversation.append(assistant_message(response))
@@ -125,14 +155,17 @@ class AgentLoop:
                 break
 
             if self._token_budget_exhausted(state):
+                self._emit(trace, "guard_triggered", guard="token_budget",
+                           detail=state.error or "")
                 break
 
             self._process_tool_calls(
-                list(response.tool_calls), state, guard, malformed
+                list(response.tool_calls), state, guard, malformed, trace
             )
 
             state.iteration += 1
 
+        self._emit_run_finished(trace, state)
         return state
 
     def _token_budget_exhausted(self, state: AgentState) -> bool:
@@ -153,13 +186,23 @@ class AgentLoop:
         state: AgentState,
         guard: LoopGuard | None,
         malformed: ConsecutiveCounter,
+        trace: TraceRecorder | None = None,
     ) -> None:
         for tool_call in tool_calls:
             if tool_call.parse_error is not None:
                 self._record_parse_failure(tool_call, state)
+                self._emit(
+                    trace, "tool_call", iteration=state.iteration,
+                    call_id=tool_call.call_id, tool_name=tool_call.tool_name,
+                    arguments={}, success=False,
+                    error=f"malformed arguments: {tool_call.parse_error}",
+                    duration_ms=0.0, result_chars=0,
+                )
                 if malformed.failure():
                     state.status = AgentStatus.LOOP_DETECTED
                     state.error = "Too many consecutive malformed tool calls"
+                    self._emit(trace, "guard_triggered", guard="malformed_cap",
+                               detail=state.error)
                     return
                 continue
 
@@ -169,6 +212,8 @@ class AgentLoop:
                 fp = call_fingerprint(tool_call.tool_name, tool_call.arguments)
                 if guard.record(fp):
                     state.status = AgentStatus.LOOP_DETECTED
+                    self._emit(trace, "guard_triggered", guard="loop_guard",
+                               detail=f"repeated call blocked: {tool_call.tool_name}")
                     return
 
             if state.is_finished:
@@ -195,11 +240,18 @@ class AgentLoop:
                 if execution.success
                 else {"success": False, "error": execution.error}
             )
+            payload = json.dumps(output, default=str)
+
+            self._emit(
+                trace, "tool_call", iteration=state.iteration,
+                call_id=tool_call.call_id, tool_name=execution.tool_name,
+                arguments=execution.arguments, success=execution.success,
+                error=execution.error, duration_ms=execution.duration_ms,
+                result_chars=len(payload),
+            )
 
             state.conversation.append(
-                tool_result_message(
-                    tool_call.call_id, json.dumps(output, default=str)
-                )
+                tool_result_message(tool_call.call_id, payload)
             )
 
     def _record_parse_failure(self, tool_call: ToolCall, state: AgentState) -> None:
@@ -221,3 +273,36 @@ class AgentLoop:
                 json.dumps({"success": False, "error": error}),
             )
         )
+
+    @staticmethod
+    def _emit(trace: TraceRecorder | None, type_: str, **data: Any) -> None:
+        if trace is not None:
+            trace.emit(type_, **data)
+
+    def _emit_llm_call(
+        self,
+        trace: TraceRecorder | None,
+        iteration: int,
+        started: float,
+        response: LLMResponse,
+    ) -> None:
+        usage = response.usage
+        self._emit(
+            trace, "llm_call", iteration=iteration,
+            latency_ms=(perf_counter() - started) * 1000,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+            tool_call_count=len(response.tool_calls),
+            attempts=len(response.attempts) + 1,
+        )
+
+    def _emit_run_finished(
+        self, trace: TraceRecorder | None, state: AgentState
+    ) -> None:
+        report = state.usage.report()
+        self._emit(
+            trace, "run_finished", status=state.status.value,
+            iterations=state.iteration, error=state.error,
+            total_tokens=report["total_tokens"], cost_usd=report["cost_usd"],
+        )
+

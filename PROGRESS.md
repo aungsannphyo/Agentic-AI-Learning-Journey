@@ -1,8 +1,12 @@
 # PROGRESS
 
-## Current: Week 2 DONE (tag w2-done, 119 tests, ruff+mypy clean) — next: Week 3 Day 1 (trace design)
+## Current: Week 3 / Day 1 DONE (trace design) — next: W3 D2 (Retry-After ticket + instrumentation/trace viewer CLI)
 
 ## Done
+- W3 D1: app/agent/trace.py (TraceEvent, TraceSink Protocol, InMemorySink, JsonlFileSink, TraceRecorder);
+  AgentLoop(trace=...) explicit emit: run_started, llm_call, tool_call, guard_triggered, run_finished;
+  AgentState.run_id; main.py writes traces/runs.jsonl; tests/test_trace.py (11 tests) → 130 tests passed
+
 - W1 D1–D5: LLMClient (ADR-0001), Tool/Registry, native tool calling, AgentLoop,
   error-as-observation, Workspace-restricted list_files/read_file/search_text
 - W2 D1: Decision schema + 3 structured-output strategies (reference, not wired)
@@ -84,6 +88,11 @@ AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architectu
 Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
+- Trace = explicit emit through sink Protocol (not derived from state, not logging module)
+- tool_call events record arguments + result_chars, never result content (size + secrets)
+- Sink failures never break a run (stderr warning); seq gap reveals dropped events
+- run_finished emitted once after the loop (covers every terminal status)
+- ts = wall-clock UTC for ordering; durations from perf_counter
 - Conversation is provider-neutral JSON-serializable list; provider serialization happens strictly in provider client
 - ResilientClient is completely stateless; run deadline passed via should_abort callable parameter
 - Attempt log travels with LLMResponse.attempts or on raised LLMCallFailed/DeadlineExceeded.attempt_log
@@ -94,6 +103,10 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 - Model's malformed output is an observation, not a run failure; parse before loop guard; consecutive cap (3)
 
 ## Open problems / bugs
+- Empty-final-answer path emits no guard_triggered (provider issue, shown in run_finished)
+- Per-attempt LLM latency not traced (W3 D2); JsonlFileSink reopens file per event
+- Arguments may contain secrets-adjacent paths (W7 D4)
+- Retry-After ticket moved to W3 D2 (need live look at RateLimitError.response.headers first)
 - [RESOLVED] A1: ABC vs Protocol (ADR-0002) → LLMClient is single Protocol with complete()
 - [RESOLVED] A2: internal LLMResponse type + serializable conversation + deadline as call param (should_abort)
 - [RESOLVED] A3: exception location → app/llm/errors.py (LLMCallFailed, DeadlineExceeded)
@@ -121,6 +134,12 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 
 ## Eval status
 No formal eval yet (Week 3).
+W3 D1 live trace run (run_id: 157dd5c2ea03414bb8d15af61be97ef8):
+- 19 events, 8 iterations, status: completed.
+- 8 LLM calls: latency ranged 477ms - 25,976ms (the final call had 4 attempts due to TPM rate-limit backoff, user-visible latency ~26s).
+- 7 tool calls: execution duration ~0.01ms - 7.26ms (sub-millisecond for local directory listings, ~7ms for README read).
+- Input token progression: 325 → 448 → 505 → 554 → 632 → 943 → 1,000 → 1,904 → 4,625 (driven by cumulative tool result history).
+- Total tokens: 12,440 (cost: $0.002543).
 Baseline W2 D5 Exp 1: 6 calls, 5481 in / 1153 out, $0.0015; fixed overhead 301 input tokens (3 tools).
 Cleanup S1 live: 7 calls, 7236 in / 1245 out, $0.0018.
 Input growth driven by tool-output size, not call count. Reasoning tokens verified included in output_tokens (ADR-0002).
@@ -129,4 +148,5 @@ D6 Exp 2 (after fix): 7/7 fault injection tests passed; 113 passed total in test
 D6 Exp 3 (live run): completed successfully.
 
 ## Today's goal (next session)
-W3 D1 trace design + Retry-After ticket
+W3 D2 (Retry-After ticket + instrumentation/trace viewer CLI)
+

@@ -28,6 +28,7 @@ class AgentState:
     history: ExecutionHistory = field(default_factory=ExecutionHistory)
     usage: UsageTracker = field(default_factory=UsageTracker)
     llm_attempts: list[AttemptRecord] = field(default_factory=list)
+    run_id: str | None = None
 
     @property
     def is_finished(self) -> bool:

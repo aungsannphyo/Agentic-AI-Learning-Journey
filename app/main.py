@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from app.agent import (
     AgentLoop,
+    JsonlFileSink,
     LoopGuard,
     ModelPricing,
     RuntimeBudget,
@@ -81,11 +82,14 @@ def main() -> None:
             max_total_tokens=int(os.getenv("AGENT_MAX_TOTAL_TOKENS", "50000"))
         ),
         pricing=pricing_from_env(),
+        trace=JsonlFileSink(Path("traces") / "runs.jsonl"),
     )
 
     state = agent.run(
         "Explain the app directory and identify the main agent loop file."
     )
+
+    print(f"\n=== Run ID: {state.run_id} (traces/runs.jsonl) ===")
 
     print("\n=== Final Response ===\n")
     print(state.final_response)
