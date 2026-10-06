@@ -108,11 +108,10 @@ def test_unreported_usage_fails_closed() -> None:
 
 
 def test_cost_budget_requires_pricing() -> None:
+    client = FakeLLMClient(response="x")
+    budget = TokenBudget(max_cost_usd=1.0)
     with pytest.raises(ValueError):
-        _make_loop(
-            FakeLLMClient(response="x"),
-            token_budget=TokenBudget(max_cost_usd=1.0),
-        )
+        _make_loop(client, token_budget=budget)
 
 
 # ── loop integration ───────────────────────────────────────────────────────

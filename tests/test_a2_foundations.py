@@ -78,7 +78,8 @@ def test_complete_returns_llm_response_with_serializable_items() -> None:
 
     assert isinstance(result, LLMResponse)
     assert [c.call_id for c in result.tool_calls] == ["c1"]
-    assert result.usage is not None and result.usage.total_tokens == 5
+    assert result.usage is not None
+    assert result.usage.total_tokens == 5
     json.dumps(list(result.assistant_items))  # serializable
     assert result.assistant_items[0]["type"] == "reasoning"
 
@@ -113,7 +114,8 @@ def test_fake_client_complete_follows_sequence() -> None:
     second = fake.complete(messages=[user_message("go")], tools=_tools())
 
     assert first.tool_calls[0].tool_name == "list_files"
-    assert second.text == "done" and second.tool_calls == ()
+    assert second.text == "done"
+    assert second.tool_calls == ()
     assert first.usage is not None
 
 

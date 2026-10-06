@@ -71,7 +71,8 @@ def test_agent_loop_completes_after_tool_call() -> None:
     state = loop.run("List files in the workspace.")
 
     assert state.status == AgentStatus.COMPLETED
-    assert state.final_response is not None and "Final answer" in state.final_response
+    assert state.final_response is not None
+    assert "Final answer" in state.final_response
     assert state.iteration == 1      # incremented after iteration 0 only
 
     # LLM was called exactly twice

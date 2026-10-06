@@ -165,4 +165,5 @@ def test_unknown_argument_is_rejected_when_validation_enabled() -> None:
     )
 
     assert result.success is False
-    assert result.error is not None and "recursive" in result.error
+    assert result.error is not None
+    assert "recursive" in result.error
