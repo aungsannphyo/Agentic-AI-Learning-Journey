@@ -7,10 +7,15 @@ import openai
 
 from app.agent import AgentLoop, AgentStatus, LoopGuard
 from app.llm import FakeLLMClient, FakeResponse, LLMResponse, ResilientClient, RetryPolicy
-from tests.builders import llm_response, tool_outputs
 from app.tools import (
-    ListFilesTool, ReadFileTool, SearchTextTool, ToolExecutor, ToolRegistry, Workspace,
+    ListFilesTool,
+    ReadFileTool,
+    SearchTextTool,
+    ToolExecutor,
+    ToolRegistry,
+    Workspace,
 )
+from tests.builders import tool_outputs
 
 
 def _usage() -> SimpleNamespace:

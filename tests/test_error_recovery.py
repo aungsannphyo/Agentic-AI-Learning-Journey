@@ -13,7 +13,6 @@ from types import SimpleNamespace
 
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, FakeResponse
-from tests.builders import tool_outputs
 from app.tools import (
     ListFilesTool,
     ReadFileTool,
@@ -22,6 +21,7 @@ from app.tools import (
     ToolRegistry,
     Workspace,
 )
+from tests.builders import tool_outputs
 
 # ---------------------------------------------------------------------------
 # Shared helpers

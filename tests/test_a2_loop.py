@@ -7,7 +7,6 @@ import openai
 from app.agent import AgentLoop, AgentStatus
 from app.llm import FakeLLMClient, ResilientClient, RetryPolicy
 from app.tools import ListFilesTool, ToolExecutor, ToolRegistry, Workspace
-
 from tests.builders import final_response, llm_response, tool_call_response
 
 
@@ -66,3 +65,15 @@ def test_failed_call_attempts_surface_on_state() -> None:
 
     assert state.status == AgentStatus.LLM_FAILED
     assert len(state.llm_attempts) == 1
+
+
+def test_empty_final_answer_is_not_completed() -> None:
+    fake = FakeLLMClient(
+        response="x", response_sequence=[final_response("   ")]
+    )
+
+    state = _loop(fake).run("go")
+
+    assert state.status == AgentStatus.LLM_FAILED
+    assert "empty" in (state.error or "")
+

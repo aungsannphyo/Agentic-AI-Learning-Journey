@@ -7,13 +7,17 @@ import openai
 import pytest
 
 from app.agent import AgentLoop, AgentStatus
+from app.llm import FakeResponse, LLMResponse, extract_usage
 from app.llm.llm_errors import classify_llm_error
 from app.llm.resilient_client import ResilientClient
 from app.llm.retry import ErrorKind, RetryPolicy
-from app.llm import FakeLLMClient, FakeResponse, LLMResponse, extract_usage
 from app.tools import (
-    ListFilesTool, ReadFileTool, SearchTextTool,
-    ToolExecutor, ToolRegistry, Workspace,
+    ListFilesTool,
+    ReadFileTool,
+    SearchTextTool,
+    ToolExecutor,
+    ToolRegistry,
+    Workspace,
 )
 
 

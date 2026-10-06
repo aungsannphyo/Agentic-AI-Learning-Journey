@@ -46,7 +46,7 @@ class ResilientClient:
             try:
                 response = self._inner.complete(messages=messages, tools=tools)
                 return replace(response, attempts=tuple(attempts))
-            except Exception as exc:  # noqa: BLE001 - classified below
+            except Exception as exc:
                 kind = self._classify(exc)
                 decision = self._policy.decide(attempt=attempt, error_kind=kind)
                 attempts.append(

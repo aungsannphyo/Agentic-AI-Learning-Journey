@@ -53,14 +53,22 @@ def main() -> None:
     inner = OpenAIClient(
         system_prompt=(
             "You are a software engineering agent. "
-            "Use the available tools to inspect the workspace. "
+            "You must ONLY call the tools explicitly provided: list_files, read_file, search_text. "
+            "Never use any namespace prefixes or tools not defined (such as repo_browser). "
             "Only use workspace-relative paths. "
             "Do not invent file contents."
         ),
         timeout_seconds=runtime_budget.per_call_timeout_seconds,
     )
 
-    client = ResilientClient(inner, RetryPolicy(max_attempts=3))
+    client = ResilientClient(
+        inner,
+        RetryPolicy(
+            max_attempts=5,
+            base_delay_seconds=3.0,
+            max_delay_seconds=25.0,
+        ),
+    )
 
     agent = AgentLoop(
         client=client,

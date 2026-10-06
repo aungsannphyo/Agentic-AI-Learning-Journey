@@ -10,6 +10,15 @@ from .openai_tools import to_openai_tool
 from .types import LLMResponse, extract_usage
 
 
+def _function_calls(output: Sequence[Any]) -> list[Any]:
+    """Provider output is untrusted; select by structural `type` tag.
+
+    Typed as Any on purpose: the SDK union is wide and tests use
+    duck-typed fakes, so narrowing by isinstance would couple both.
+    """
+    return [i for i in output if getattr(i, "type", None) == "function_call"]
+
+
 class OpenAIClient:
     """OpenAI Responses API implementation of LLMClient (Groq-compatible)."""
 
@@ -22,13 +31,13 @@ class OpenAIClient:
         timeout_seconds: float | None = None,
         sdk_client: Any | None = None,
     ) -> None:
-        self._client = sdk_client or OpenAI(
+        self._client: Any = sdk_client or OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
             base_url="https://api.groq.com/openai/v1",
             timeout=timeout_seconds,
             max_retries=0,
         )
-        self._model = model or os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
+        self._model: str = (model or os.getenv("OPENAI_MODEL")) or "openai/gpt-oss-120b"
         self._temperature = (
             temperature
             if temperature is not None
@@ -89,8 +98,7 @@ class OpenAIClient:
                 name=item.name,
                 raw_arguments=item.arguments,
             )
-            for item in response.output
-            if item.type == "function_call"
+            for item in _function_calls(response.output)
         )
 
         return LLMResponse(

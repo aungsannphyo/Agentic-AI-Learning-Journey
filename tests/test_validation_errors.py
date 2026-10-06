@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 
-from app.tools.validation import format_validation_error
 from app.tools.schemas import ReadFileArgs
+from app.tools.validation import format_validation_error
 
 
 def test_validation_error_becomes_structured_observation() -> None:

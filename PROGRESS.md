@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current: Week 2 Cleanup Step 4b DONE    Date: 2026-10-05
+## Current: Week 2 cleanup Step 6 (docs) — next: Step 7 quality gate, then tag w2-done
 
 ## Done
 - W1 D1–D5: LLMClient (ADR-0001), Tool/Registry, native tool calling, AgentLoop,
@@ -18,27 +18,35 @@
   fault-injection suite (tests/test_fault_injection.py, 7 tests) → 113 tests passed
 - W2 Cleanup S1 (Hygiene): RuntimeBudget.max_iterations removed; LoopGuard block_on_nth_call rename;
   search_text skips environment/cache dirs (os.walk prune); consecutive malformed-call cap (ConsecutiveCounter);
-  loop.py docstring aligned; Decision family moved to experiments/week2_structured_output/;
+  loop.py docstring aligned; Decision family removed (git history, commit before 5f600dc);
   tests/test_openai_client.py (6 tests pin SDK contract)
-  → 106 passed production, 17 passed experiments
+  → 106 passed production
 - W2 Cleanup S3 (Layering move): Provider-facing modules moved from app/agent/ to app/llm/
   (retry.py, llm_errors.py, resilient_client.py, usage.py -> types.py, errors.py);
   Layer rules enforced & AST-tested (tests/test_layering.py):
   1) app/agent does not import openai
   2) app/llm does not import app/agent
+  3) app/tools imports neither
   Dependency flow: app/agent -> app/llm -> app/tools
-  → 109 passed production, 17 passed experiments
+  → 109 passed production
 - W2 Cleanup S4a (A2 core refactor foundations): Built provider-neutral types & complete adapters side-by-side:
   LLMResponse(text, tool_calls, usage, assistant_items), user_message, assistant_message, tool_result_message;
   OpenAIClient.complete with _to_openai_input & _dump_item; FakeLLMClient.complete;
   ResilientClient.complete (stateless, should_abort parameter); tests/builders.py;
   tests/test_a2_foundations.py (8 tests)
-  → 117 passed production, 17 passed experiments
+  → 117 passed production
 - W2 Cleanup S4b (Loop migration & legacy cleanup): AgentLoop migrated to client.complete(messages, tools, should_abort);
   conversation is provider-neutral JSON-serializable list; ResilientClient stateless;
   LLMClient Protocol (ABC, ask, respond_with_tools, set_deadline_check removed);
   tests migrated; tests/test_a2_loop.py (3 tests)
-  → 117 passed production, 17 passed experiments
+  → 117 passed production
+- Cleanup S4: LLMResponse/neutral conversation/stateless ResilientClient/LLMClient Protocol (118 tests)
+- Cleanup S5: live verification (reasoning tokens included in output_tokens;
+  max_output_tokens is a hard cap that also eats reasoning; replay of reasoning items OK)
+- Empty final answer => LLM_FAILED (test_empty_final_answer_is_not_completed)
+- ADR-0002/0003/0004
+- Live 429 TPM RateLimitError observed and verified: classify_llm_error classified as ErrorKind.TRANSIENT,
+  exponential backoff correctly surfaced in AttemptRecord attempt log.
 
 ## Code state
 app/agent/loop.py        AgentLoop(client: LLMClient, registry, executor, max_iterations, runtime_budget, clock,
@@ -66,7 +74,7 @@ app/tools/executor.py    ToolExecutor(registry): mandatory validation via tool.a
 app/tools/validation.py  format_validation_error(_json)
 app/tools/call.py        ToolCall(call_id, tool_name, arguments, parse_error=None)
 app/tools/call_parsing.py  parse_tool_call(call_id, name, raw_arguments) -> ToolCall (never raises)
-experiments/week2_structured_output/ Decision family learning artifacts (17 tests)
+Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
 - Conversation is provider-neutral JSON-serializable list; provider serialization happens strictly in provider client
@@ -85,13 +93,19 @@ experiments/week2_structured_output/ Decision family learning artifacts (17 test
 - [RESOLVED] B5: conversation serialization → neutral JSON messages (user, assistant, tool_result)
 - [RESOLVED] ResilientClient run-scoped state → stateless; attempt_log travels via response.attempts / exc.attempt_log
 - [RESOLVED] B2 LoopGuard naming → block_on_nth_call
-- [RESOLVED] A4: search_text skips only .git → SKIP_DIRS os.walk prune; Decision family moved to experiments/
+- [RESOLVED] A4: search_text skips only .git → SKIP_DIRS os.walk prune; Decision family removed (git history, commit before 5f600dc)
 - [RESOLVED] Endless malformed calls not caught by LoopGuard → ConsecutiveCounter cap stops loop
 - [RESOLVED] max_iterations duplicated in RuntimeBudget → removed, single source in AgentLoop
+- LLMResponse lacks incomplete_reason (provider-truncated responses)
+- max_output_tokens not set: needs measured reasoning-token distribution (W3)
+- Retry-After + jitter: live Groq TPM 429 observed (RetryPolicy raised to 5 attempts, base 3s, max 25s); W3 ticket #1
+- TPM limit & tool output size: 429 TPM exhaustion (Used 7328 / Requested 3350 vs 8000 limit) confirms tool output size is primary input token & cost driver as conversation grows; empirical support for W5 truncation & W9 compression
+- Cost report is a lower bound (failed attempts' usage invisible); cached tokens not priced separately
+- Replay verified only on Groq gpt-oss-120b, few runs
+- Cross-package imports must stay absolute (layering test ignores relative imports)
 - Tool.run takes raw dict → typed args ADR in W5; strict_json_schema nested unsupported
 - W5 D1: read_file needs model-facing offset/limit; keep max_bytes as safety cap
 - B7 failed-attempt usage not tracked; dangling function_call after budget stop (W12)
-- max_output_tokens not set; Retry-After/jitter missing
 - Workspace allows read_file(".env") (W7 D4)
 - Unverified agent claims → eval grader (W3)
 

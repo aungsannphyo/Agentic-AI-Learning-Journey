@@ -116,6 +116,10 @@ class AgentLoop:
             state.conversation.append(assistant_message(response))
 
             if not response.tool_calls:
+                if not response.text.strip():
+                    state.status = AgentStatus.LLM_FAILED
+                    state.error = "Model returned an empty final answer"
+                    break
                 state.final_response = response.text
                 state.status = AgentStatus.COMPLETED
                 break

@@ -19,7 +19,6 @@ from app.llm.types import (
     user_message,
 )
 from app.tools import ListFilesTool, Workspace
-
 from tests.builders import SdkItem, final_response, tool_call_response
 
 
