@@ -2538,19 +2538,19 @@ __all__ = [
 ```
 
 #### အသေးစိတ် ရှင်းလင်းချက်:
-- `app.agent` သည် Core Orchestration Layer သက်သက်သာဖြစ်ပြီး `app/llm` သို့မဟုတ် `experiments` ဖိုင်များနှင့် ရောနှောခြင်း မရှိတော့ပါ။
+- `app.agent` သည် Core Orchestration Layer သက်သက်သာဖြစ်ပြီး `app/llm` နှင့် direct circular dependency မရှိဘဲ သန့်ရှင်းစွာ ဖွဲ့စည်းထားပါသည်။
 - Single source of truth နှင့် separation of concerns ကို တိကျစွာ လိုက်နာထားပါသည်။
 
 ---
 
 ### Historical Note: Structured Output Explorations (`experiments/`)
-Codebase ၏ အစောပိုင်း သုတေသနကာလတွင် Prompt-based Structured JSON Output (Pydantic parsing & decision schemas) ကို စမ်းသပ်လေ့လာခဲ့ပြီးနောက်၊ Production Architecture အဖြစ် Native Function/Tool Calling (OpenAI Responses API) ကို အလုံးစုံ ရွေးချယ်အသုံးပြုခဲ့ပါသည်။ ထို့ကြောင့် codebase သန့်ရှင်းရေးနှင့် single responsibility စည်းမျဉ်းအရ အဆိုပါ experiment code များကို production tree မှ ဖယ်ရှားကာ native tool execution pipeline တစ်ခုတည်းပေါ်တွင်သာ အခြေခံထားပါသည်။
+Codebase ၏ အစောပိုင်း သုတေသနကာလတွင် Prompt-based Structured JSON Output (Pydantic parsing & decision schemas) ကို စမ်းသပ်လေ့လာခဲ့ပြီးနောက်၊ Production Architecture အဖြစ် Native Function/Tool Calling (OpenAI Responses API) ကို အလုံးစုံ ရွေးချယ်အသုံးပြုခဲ့ပါသည်။ အဆိုပါ exploration files များသည် git history (commit 5f600dc မတိုင်မီ) တွင်သာ ရှိပြီး production tree မှ ဖယ်ရှားကာ native tool execution pipeline တစ်ခုတည်းပေါ်တွင်သာ အခြေခံထားပါသည်။
 
 ---
 
 ## 7. Test Suite Architecture & Quality Assurance (`tests/`)
 
-Agent Runtime ၏ စိတ်ချယုံကြည်ရမှု၊ strict layering rules နှင့် fault-tolerant behavior များကို test suite တစ်ခုလုံး (118 test cases) ဖြင့် deterministic test suite အဖြစ် တည်ဆောက်ထားပါသည်။ Network API call များ သို့မဟုတ် `time.sleep()` များကို အမှန်တကယ် မသုံးဘဲ mock fakes နှင့် builders များဖြင့် မြန်ဆန်စွာ (1 second အတွင်း) execute လုပ်နိုင်စေရန် ဖွဲ့စည်းထားပါသည်။
+Agent Runtime ၏ စိတ်ချယုံကြည်ရမှု၊ strict layering rules နှင့် fault-tolerant behavior များကို test suite တစ်ခုလုံး (119 test cases) ဖြင့် deterministic test suite အဖြစ် တည်ဆောက်ထားပါသည်။ Network API call များ သို့မဟုတ် `time.sleep()` များကို အမှန်တကယ် မသုံးဘဲ mock fakes နှင့် builders များဖြင့် မြန်ဆန်စွာ (1 second အတွင်း) execute လုပ်နိုင်စေရန် ဖွဲ့စည်းထားပါသည်။
 
 ### `tests/builders.py`
 Unit test များနှင့် integration test များတွင် duplicate code များ လျှော့ချရန်နှင့် deterministic fakes များ single source of truth အဖြစ် အသုံးပြုနိုင်ရန် ဗဟို test fixture builder ဖြစ်ပါသည်။
