@@ -68,11 +68,11 @@ app/agent/loop.py        AgentLoop(client: LLMClient, registry, executor, max_it
                          run(): provider-neutral conversation; client.complete(messages, tools, should_abort);
                          order: wall-clock → iter → LLM (LLMCallFailed→LLM_FAILED, DeadlineExceeded→TIMEOUT)
                          → usage → final answer → token budget → [per call: parse_error (N consecutive → LOOP_DETECTED) → loop guard → execute]
-                         attempt_log included in llm_call and guard_triggered timeout events
+                         attempt_log included in llm_call and guard_triggered timeout events; cognitive complexity refactored (23 -> 6)
 app/agent/loop_guard.py  LoopGuard(block_on_nth_call), ConsecutiveCounter(limit), call_fingerprint
 app/agent/budget.py      RuntimeBudget(max_wall_time_seconds, per_call_timeout_seconds), BudgetTracker
 app/agent/cost.py        UsageTracker, ModelPricing, TokenBudget
-app/agent/state.py       AgentStatus, AgentState(conversation, iteration, status, final_response, error, history, usage, llm_attempts)
+app/agent/state.py       AgentStatus, AgentState(conversation, iteration, status, final_response, error, history, usage, llm_attempts, run_id)
 app/agent/trace.py       TraceEvent, TraceSink, InMemorySink, JsonlFileSink, TraceRecorder
 app/trace_view.py        Read-only viewer CLI for traces/runs.jsonl (decoupled, plain JSONL dicts)
 app/llm/client.py        LLMClient(Protocol): complete(messages, tools, should_abort) -> LLMResponse
@@ -117,9 +117,11 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 
 ## Open problems / bugs
 - RESOLVED: Retry-After ticket (header path verified live: Groq returns `retry-after: 16` HTTP header; message path covered by tests)
+- Proactive throttling from x-ratelimit-remaining/reset-tokens headers (avoid 429 entirely; ties into W9 context budget)
+- Viewer llm_ms includes retry sleep; split wait vs model time (delay_s vs latency_ms)
+- Error text in attempt_log contains org id (not secret); keep traces/ out of git
 - Sleep is not remaining-wall-clock aware (should_abort is a bool, not remaining time)
 - Message regex tied to Groq wording; trace has no schema_version
-- attempt_log error text (200 chars) may echo provider error bodies (secret check Exp 5: clean, no leaks found)
 - Empty-final-answer path emits no guard_triggered (provider issue, shown in run_finished)
 - Arguments may contain secrets-adjacent paths (W7 D4)
 - LLMResponse lacks incomplete_reason (provider-truncated responses)
@@ -138,10 +140,11 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 (ကိုယ့်ဘာသာဖြည့်ပါ)
 
 ## Eval status
-- Probe result (headers present? parsed retry_after?): Headers present (`retry-after: 16`), parsed retry_after=16.0 (live verified against Groq 429).
-- Viewer on live run: llm share=100% (11.01s / 11.02s wall) / slowest call=iter 5 (7869ms, retries=1) / retries=1.
-- Day 1 trace rendering: 8 iterations, 56.01s LLM time (100% wall share), slowest call iter 7 (51002ms, 4 retries).
-- No `gsk_` or `Bearer` tokens leaked in traces (checked via Select-String regex).
+W3 D2 probe: Groq 429 returns `retry-after` header (16, ceiling of message's 15.42s) plus
+x-ratelimit-{limit,remaining,reset}-tokens. TPM limit 8000. Header path verified live.
+Old run: iter 7 took 51s (retries=4) ≈91% of 56s wall. New run: 1 retry honoring hint (5s), wall 11s
+(single runs, not causal). `repo_browser.list_files` hallucination appeared in old run, not new.
+No `gsk_` or `Bearer` tokens leaked in traces (checked via regex).
 
 ## Today's goal (next session)
 W3 D3 (eval task set)
