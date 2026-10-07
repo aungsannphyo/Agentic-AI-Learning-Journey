@@ -19,6 +19,8 @@ dev = [
     "pytest-cov",
     "mypy",
     "ruff",
+    "pyyaml>=6.0",
+    "types-PyYAML",
 ]
 
 [tool.pytest.ini_options]

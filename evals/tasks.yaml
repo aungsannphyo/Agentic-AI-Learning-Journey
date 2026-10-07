@@ -1,0 +1,122 @@
+version: 1
+fixture: evals/fixtures/shop
+tasks:
+  - id: find-discount-file
+    category: find_file
+    prompt: "Which file implements the discount calculation? Give the file path."
+    expect:
+      kind: answer_contains_all
+      values: ["src/pricing.py"]
+    must_read: []
+    max_iterations: 8
+
+  - id: find-inventory-file
+    category: find_file
+    prompt: "Where is stock tracking implemented? Give the file path."
+    expect:
+      kind: answer_contains_all
+      values: ["src/inventory.py"]
+    must_read: []
+    max_iterations: 8
+
+  - id: find-config-file
+    category: find_file
+    prompt: "Which file holds the shop's configuration constants?"
+    expect:
+      kind: answer_contains_all
+      values: ["src/config.py"]
+    must_read: []
+    max_iterations: 8
+
+  - id: read-tax-rate
+    category: read_fact
+    prompt: "What is the tax rate used by the shop?"
+    expect:
+      kind: answer_contains_any
+      values: ["0.07", "7%"]
+    must_read: ["src/config.py"]
+    max_iterations: 8
+
+  - id: read-free-shipping
+    category: read_fact
+    prompt: "From what subtotal is shipping free?"
+    expect:
+      kind: answer_contains_all
+      values: ["50"]
+    must_read: ["src/config.py"]
+    max_iterations: 8
+
+  - id: read-max-items
+    category: read_fact
+    prompt: "What is the maximum number of items allowed in a single order?"
+    expect:
+      kind: answer_contains_all
+      values: ["20"]
+    must_read: ["src/config.py"]
+    max_iterations: 8
+
+  - id: symbol-out-of-stock
+    category: find_symbol
+    prompt: "Where is OutOfStockError defined?"
+    expect:
+      kind: answer_contains_all
+      values: ["src/inventory.py"]
+    must_read: []
+    max_iterations: 8
+
+  - id: symbol-shipping-cost
+    category: find_symbol
+    prompt: "Which function decides the shipping cost, and in which file?"
+    expect:
+      kind: answer_contains_all
+      values: ["shipping_cost", "src/pricing.py"]
+    must_read: []
+    max_iterations: 8
+
+  - id: explain-orders
+    category: explain
+    prompt: "Explain how an order total is computed, step by step."
+    expect:
+      kind: answer_contains_all
+      values: ["discount", "tax", "shipping"]
+    must_read: ["src/orders.py", "src/pricing.py"]
+    max_iterations: 10
+
+  - id: explain-stock-check
+    category: explain
+    prompt: "What happens when someone adds an order line for more units than are in stock?"
+    expect:
+      kind: answer_contains_all
+      values: ["OutOfStockError"]
+    must_read: ["src/orders.py", "src/inventory.py"]
+    max_iterations: 10
+
+  - id: negative-payment
+    category: negative
+    prompt: "Which file handles credit card payment processing?"
+    expect:
+      kind: answer_contains_any
+      values: ["no such", "not found", "does not exist", "no file", "doesn't exist", "no payment", "not implemented", "there is no", "couldn't find", "could not find"]
+    must_read: []
+    max_iterations: 8
+
+  - id: negative-email
+    category: negative
+    prompt: "What SMTP server does the shop use to send order confirmation emails?"
+    expect:
+      kind: answer_contains_any
+      values: ["no such", "not found", "does not exist", "no smtp", "doesn't exist", "not configured", "not implemented", "there is no", "couldn't find", "could not find", "no email"]
+    must_read: []
+    max_iterations: 8
+
+  - id: edit-add-currency-symbol
+    category: edit
+    enabled: false
+    prompt: "Add a constant CURRENCY_SYMBOL = \"$\" to the config file."
+    expect:
+      kind: file_content_contains
+      path: src/config.py
+      values: ["CURRENCY_SYMBOL"]
+    unchanged: ["src/pricing.py", "src/orders.py"]
+    must_read: []
+    max_iterations: 10

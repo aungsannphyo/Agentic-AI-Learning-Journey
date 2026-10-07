@@ -1,8 +1,12 @@
 # PROGRESS
 
-## Current: Week 3 / Day 2 DONE (151 tests, ruff+mypy clean) — next: W3 D3 (eval task set)
+## Current: Week 3 / Day 3 DONE (165 tests, ruff+mypy clean) — next: W3 D4 (graders)
 
 ## Done
+- W3 D3: evals/fixtures/shop (synthetic repo, 7 src+test files, incl. decoy legacy_pricing.py);
+  evals/tasks.yaml (13 tasks: 12 enabled + 1 disabled edit; categories find_file/read_fact/find_symbol/explain/negative/edit);
+  evals/spec.py (pydantic TaskFile/Task/Expect, load_tasks, referenced_paths);
+  tests/test_eval_tasks.py (13 tests) + test_layering.py rule 4 (1 test) → 165 passed total
 - W3 D2: retry_after_seconds() (header, then "try again in Ns" message; transient only);
   ResilientClient(max_retry_after_seconds=60): delay=max(backoff,hint), hint>max → fail fast;
   AttemptRecord(+retry_after_seconds, +latency_ms); llm_call/guard_triggered trace events carry attempt_log;
@@ -113,9 +117,17 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 - Validation mandatory in ToolExecutor; Tool.args_model single source of truth
 - Usage None≠0; fail closed; token budget checked before side effects; final answer accepted over budget
 - Retry wraps LLM call only; unknown LLM errors PERMANENT; SDK retries disabled
-- Model's malformed output is an observation, not a run failure; parse before loop guard; consecutive cap (3)
+- Synthetic immutable fixture (ground truth controlled; small to fit TPM 8000); real-repo tasks added in W5
+- Ground truth is tested against the fixture (drift fails CI); must_read catches "answered without reading"
+- negative category added to measure hallucination (not just retrieval)
+- Edit task pre-registered as enabled:false until W6; baselines use enabled_tasks() only
+- Dependency direction: evals may import app, never the reverse
 
 ## Open problems / bugs
+- negative-task phrase lists are brittle (false-fail risk) → W3 D4 grader design
+- answer_contains_all has blind spots: decoy co-mention passes; "20" substring false-pass → add answer_not_contains / word-boundary matching (D4)
+- 12 tasks × N repeats under TPM 8000 → runner needs rate-aware pacing (D5; use x-ratelimit headers)
+- Each eval run must copy fixture to a temp workspace (D5)
 - RESOLVED: Retry-After ticket (header path verified live: Groq returns `retry-after: 16` HTTP header; message path covered by tests)
 - Proactive throttling from x-ratelimit-remaining/reset-tokens headers (avoid 429 entirely; ties into W9 context budget)
 - Viewer llm_ms includes retry sleep; split wait vs model time (delay_s vs latency_ms)
@@ -140,13 +152,9 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 (ကိုယ့်ဘာသာဖြည့်ပါ)
 
 ## Eval status
-W3 D2 probe: Groq 429 returns `retry-after` header (16, ceiling of message's 15.42s) plus
-x-ratelimit-{limit,remaining,reset}-tokens. TPM limit 8000. Header path verified live.
-Old run: iter 7 took 51s (retries=4) ≈91% of 56s wall. New run: 1 retry honoring hint (5s), wall 11s
-(single runs, not causal). `repo_browser.list_files` hallucination appeared in old run, not new.
-No `gsk_` or `Bearer` tokens leaked in traces (checked via regex).
+No agent runs yet. Task set only (12 enabled tasks).
 
 ## Today's goal (next session)
-W3 D3 (eval task set)
+W3 D4 (graders)
 
 

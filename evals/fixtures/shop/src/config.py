@@ -1,0 +1,6 @@
+"""Shop configuration constants."""
+
+TAX_RATE = 0.07
+FREE_SHIPPING_THRESHOLD = 50.0
+MAX_ITEMS_PER_ORDER = 20
+CURRENCY = "USD"

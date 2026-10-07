@@ -32,3 +32,9 @@ def test_tools_do_not_import_agent_or_llm() -> None:
     imports = _imports("tools")
     assert _any_prefix(imports, "app.agent") == []
     assert _any_prefix(imports, "app.llm") == []
+
+
+def test_app_does_not_import_evals() -> None:
+    for package in ("agent", "llm", "tools"):
+        assert _any_prefix(_imports(package), "evals") == []
+
