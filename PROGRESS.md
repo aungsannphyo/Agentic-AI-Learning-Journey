@@ -1,8 +1,13 @@
 # PROGRESS
 
-## Current: Week 3 / Day 1 DONE (trace design) — next: W3 D2 (Retry-After ticket + instrumentation/trace viewer CLI)
+## Current: Week 3 / Day 2 DONE (151 tests, ruff+mypy clean) — next: W3 D3 (eval task set)
 
 ## Done
+- W3 D2: retry_after_seconds() (header, then "try again in Ns" message; transient only);
+  ResilientClient(max_retry_after_seconds=60): delay=max(backoff,hint), hint>max → fail fast;
+  AttemptRecord(+retry_after_seconds, +latency_ms); llm_call/guard_triggered trace events carry attempt_log;
+  app/trace_view.py (python -m app.trace_view [run_id|prefix|latest] [--list] [--file]);
+  tests/test_retry_after.py (12), tests/test_trace_view.py (9) → 151 passed total
 - W3 D1: app/agent/trace.py (TraceEvent, TraceSink Protocol, InMemorySink, JsonlFileSink, TraceRecorder);
   AgentLoop(trace=...) explicit emit: run_started, llm_call, tool_call, guard_triggered, run_finished;
   AgentState.run_id; main.py writes traces/runs.jsonl; tests/test_trace.py (11 tests) → 130 tests passed
@@ -59,20 +64,25 @@
 
 ## Code state
 app/agent/loop.py        AgentLoop(client: LLMClient, registry, executor, max_iterations, runtime_budget, clock,
-                         loop_guard_factory, token_budget, pricing, max_consecutive_malformed)
+                         loop_guard_factory, token_budget, pricing, max_consecutive_malformed, trace)
                          run(): provider-neutral conversation; client.complete(messages, tools, should_abort);
                          order: wall-clock → iter → LLM (LLMCallFailed→LLM_FAILED, DeadlineExceeded→TIMEOUT)
                          → usage → final answer → token budget → [per call: parse_error (N consecutive → LOOP_DETECTED) → loop guard → execute]
+                         attempt_log included in llm_call and guard_triggered timeout events
 app/agent/loop_guard.py  LoopGuard(block_on_nth_call), ConsecutiveCounter(limit), call_fingerprint
 app/agent/budget.py      RuntimeBudget(max_wall_time_seconds, per_call_timeout_seconds), BudgetTracker
 app/agent/cost.py        UsageTracker, ModelPricing, TokenBudget
 app/agent/state.py       AgentStatus, AgentState(conversation, iteration, status, final_response, error, history, usage, llm_attempts)
+app/agent/trace.py       TraceEvent, TraceSink, InMemorySink, JsonlFileSink, TraceRecorder
+app/trace_view.py        Read-only viewer CLI for traces/runs.jsonl (decoupled, plain JSONL dicts)
 app/llm/client.py        LLMClient(Protocol): complete(messages, tools, should_abort) -> LLMResponse
 app/llm/errors.py        LLMCallFailed(attempts, kind, attempt_log), DeadlineExceeded(attempt_log)
 app/llm/retry.py         RetryPolicy, ErrorKind, RetryDecision
-app/llm/llm_errors.py    classify_llm_error (unknown => PERMANENT)
-app/llm/resilient_client.py  ResilientClient(inner, policy, sleep, classify) - completely stateless
-app/llm/types.py         AttemptRecord, LLMResponse, Usage, extract_usage, user_message, assistant_message, tool_result_message
+app/llm/llm_errors.py    classify_llm_error, retry_after_seconds (header first, then message regex)
+app/llm/resilient_client.py  ResilientClient(inner, policy, sleep, classify, max_retry_after_seconds):
+                         delay=max(backoff, hint), fail-fast if hint > max_hint; tracks latency_ms
+app/llm/types.py         AttemptRecord(+retry_after_seconds, +latency_ms), LLMResponse, Usage, extract_usage,
+                         user_message, assistant_message, tool_result_message
 app/llm/openai_client.py OpenAIClient: complete(messages, tools, should_abort) with _to_openai_input & _dump_item
 app/llm/fake_client.py   FakeLLMClient: complete(), FakeResponse
 app/tools/base.py        Tool: name, description, args_model (abstract), input_schema (derived), run(dict)
@@ -84,10 +94,13 @@ app/tools/validation.py  format_validation_error(_json)
 app/tools/call.py        ToolCall(call_id, tool_name, arguments, parse_error=None)
 app/tools/call_parsing.py  parse_tool_call(call_id, name, raw_arguments) -> ToolCall (never raises)
 tests/builders.py        Centralized shared test fixtures: FakeClock, FakeSDK, ScriptedClient, function_call_item, usage, make_llm_response
-AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architecture reference; 100% synchronized with codebase (Sections 1-8)
+AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architecture reference
 Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
+- Retry hint is a transport concern → lives in ResilientClient, not RetryPolicy
+- Hint wins only upward (max with backoff); over-long hint fails fast, never sleeps
+- Viewer reads plain JSONL dicts (no runtime imports); old traces still render
 - Trace = explicit emit through sink Protocol (not derived from state, not logging module)
 - tool_call events record arguments + result_chars, never result content (size + secrets)
 - Sink failures never break a run (stderr warning); seq gap reveals dropped events
@@ -103,22 +116,14 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 - Model's malformed output is an observation, not a run failure; parse before loop guard; consecutive cap (3)
 
 ## Open problems / bugs
+- RESOLVED: Retry-After ticket (header path verified live: Groq returns `retry-after: 16` HTTP header; message path covered by tests)
+- Sleep is not remaining-wall-clock aware (should_abort is a bool, not remaining time)
+- Message regex tied to Groq wording; trace has no schema_version
+- attempt_log error text (200 chars) may echo provider error bodies (secret check Exp 5: clean, no leaks found)
 - Empty-final-answer path emits no guard_triggered (provider issue, shown in run_finished)
-- Per-attempt LLM latency not traced (W3 D2); JsonlFileSink reopens file per event
 - Arguments may contain secrets-adjacent paths (W7 D4)
-- Retry-After ticket moved to W3 D2 (need live look at RateLimitError.response.headers first)
-- [RESOLVED] A1: ABC vs Protocol (ADR-0002) → LLMClient is single Protocol with complete()
-- [RESOLVED] A2: internal LLMResponse type + serializable conversation + deadline as call param (should_abort)
-- [RESOLVED] A3: exception location → app/llm/errors.py (LLMCallFailed, DeadlineExceeded)
-- [RESOLVED] B5: conversation serialization → neutral JSON messages (user, assistant, tool_result)
-- [RESOLVED] ResilientClient run-scoped state → stateless; attempt_log travels via response.attempts / exc.attempt_log
-- [RESOLVED] B2 LoopGuard naming → block_on_nth_call
-- [RESOLVED] A4: search_text skips only .git → SKIP_DIRS os.walk prune; Decision family removed (git history, commit before 5f600dc)
-- [RESOLVED] Endless malformed calls not caught by LoopGuard → ConsecutiveCounter cap stops loop
-- [RESOLVED] max_iterations duplicated in RuntimeBudget → removed, single source in AgentLoop
 - LLMResponse lacks incomplete_reason (provider-truncated responses)
 - max_output_tokens not set: needs measured reasoning-token distribution (W3)
-- Retry-After + jitter: live Groq TPM 429 observed (RetryPolicy raised to 5 attempts, base 3s, max 25s); W3 ticket #1
 - TPM limit & tool output size: 429 TPM exhaustion (Used 7328 / Requested 3350 vs 8000 limit) confirms tool output size is primary input token & cost driver as conversation grows; empirical support for W5 truncation & W9 compression
 - Cost report is a lower bound (failed attempts' usage invisible); cached tokens not priced separately
 - Replay verified only on Groq gpt-oss-120b, few runs
@@ -133,20 +138,12 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 (ကိုယ့်ဘာသာဖြည့်ပါ)
 
 ## Eval status
-No formal eval yet (Week 3).
-W3 D1 live trace run (run_id: 157dd5c2ea03414bb8d15af61be97ef8):
-- 19 events, 8 iterations, status: completed.
-- 8 LLM calls: latency ranged 477ms - 25,976ms (the final call had 4 attempts due to TPM rate-limit backoff, user-visible latency ~26s).
-- 7 tool calls: execution duration ~0.01ms - 7.26ms (sub-millisecond for local directory listings, ~7ms for README read).
-- Input token progression: 325 → 448 → 505 → 554 → 632 → 943 → 1,000 → 1,904 → 4,625 (driven by cumulative tool result history).
-- Total tokens: 12,440 (cost: $0.002543).
-Baseline W2 D5 Exp 1: 6 calls, 5481 in / 1153 out, $0.0015; fixed overhead 301 input tokens (3 tools).
-Cleanup S1 live: 7 calls, 7236 in / 1245 out, $0.0018.
-Input growth driven by tool-output size, not call count. Reasoning tokens verified included in output_tokens (ADR-0002).
-D6 Exp 1 (test-first, before fix): 4 failed (test_garbage_json_arguments_become_observation, test_non_object_arguments_become_observation, test_malformed_calls_do_not_trigger_loop_guard, test_endless_malformed_calls_stop_at_max_iterations), 3 passed.
-D6 Exp 2 (after fix): 7/7 fault injection tests passed; 113 passed total in test suite.
-D6 Exp 3 (live run): completed successfully.
+- Probe result (headers present? parsed retry_after?): Headers present (`retry-after: 16`), parsed retry_after=16.0 (live verified against Groq 429).
+- Viewer on live run: llm share=100% (11.01s / 11.02s wall) / slowest call=iter 5 (7869ms, retries=1) / retries=1.
+- Day 1 trace rendering: 8 iterations, 56.01s LLM time (100% wall share), slowest call iter 7 (51002ms, 4 retries).
+- No `gsk_` or `Bearer` tokens leaked in traces (checked via Select-String regex).
 
 ## Today's goal (next session)
-W3 D2 (Retry-After ticket + instrumentation/trace viewer CLI)
+W3 D3 (eval task set)
+
 

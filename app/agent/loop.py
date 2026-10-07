@@ -1,9 +1,15 @@
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from time import perf_counter
 from typing import Any
 
-from app.llm import DeadlineExceeded, LLMCallFailed, LLMClient, LLMResponse
+from app.llm import (
+    AttemptRecord,
+    DeadlineExceeded,
+    LLMCallFailed,
+    LLMClient,
+    LLMResponse,
+)
 from app.llm.types import assistant_message, tool_result_message, user_message
 from app.tools import ToolCall, ToolExecutor, ToolRegistry
 
@@ -104,69 +110,135 @@ class AgentLoop:
         )
 
         while not state.is_finished:
-            if tracker is not None and tracker.is_expired():
-                state.status = AgentStatus.TIMEOUT
-                self._emit(trace, "guard_triggered", guard="timeout",
-                           detail="wall-clock budget expired")
-                break
-
-            if state.iteration >= self._max_iterations:
-                state.status = AgentStatus.MAX_ITERATIONS
-                self._emit(trace, "guard_triggered", guard="max_iterations",
-                           detail=f"limit={self._max_iterations}")
-                break
-
-            started = perf_counter()
-            try:
-                response = self._client.complete(
-                    messages=state.conversation,
-                    tools=self._registry.list(),
-                    should_abort=should_abort,
-                )
-            except DeadlineExceeded as exc:
-                state.llm_attempts.extend(exc.attempt_log)
-                state.status = AgentStatus.TIMEOUT
-                self._emit(trace, "guard_triggered", guard="timeout",
-                           detail="deadline expired while retrying LLM call")
-                break
-            except LLMCallFailed as exc:
-                state.llm_attempts.extend(exc.attempt_log)
-                state.status = AgentStatus.LLM_FAILED
-                state.error = str(exc)
-                self._emit(
-                    trace, "llm_call", iteration=state.iteration,
-                    latency_ms=(perf_counter() - started) * 1000,
-                    failed=True, attempts=len(exc.attempt_log),
-                )
-                break
-
-            self._emit_llm_call(trace, state.iteration, started, response)
-            state.llm_attempts.extend(response.attempts)
-            state.usage.record(response.usage)
-            state.conversation.append(assistant_message(response))
-
-            if not response.tool_calls:
-                if not response.text.strip():
-                    state.status = AgentStatus.LLM_FAILED
-                    state.error = "Model returned an empty final answer"
-                    break
-                state.final_response = response.text
-                state.status = AgentStatus.COMPLETED
-                break
-
-            if self._token_budget_exhausted(state):
-                self._emit(trace, "guard_triggered", guard="token_budget",
-                           detail=state.error or "")
-                break
-
-            self._process_tool_calls(
-                list(response.tool_calls), state, guard, malformed, trace
+            self._run_iteration(
+                state=state,
+                tracker=tracker,
+                guard=guard,
+                malformed=malformed,
+                should_abort=should_abort,
+                trace=trace,
             )
-
-            state.iteration += 1
 
         self._emit_run_finished(trace, state)
         return state
+
+    def _run_iteration(
+        self,
+        state: AgentState,
+        tracker: BudgetTracker | None,
+        guard: LoopGuard | None,
+        malformed: ConsecutiveCounter,
+        should_abort: Callable[[], bool] | None,
+        trace: TraceRecorder | None,
+    ) -> None:
+        if not self._check_iteration_budget(state, tracker, trace):
+            return
+
+        response = self._call_llm(state, should_abort, trace)
+        if response is None:
+            return
+
+        if not response.tool_calls:
+            self._handle_final_response(response, state)
+            return
+
+        if self._token_budget_exhausted(state):
+            self._emit(
+                trace,
+                "guard_triggered",
+                guard="token_budget",
+                detail=state.error or "",
+            )
+            return
+
+        self._process_tool_calls(
+            list(response.tool_calls), state, guard, malformed, trace
+        )
+        state.iteration += 1
+
+    def _check_iteration_budget(
+        self,
+        state: AgentState,
+        tracker: BudgetTracker | None,
+        trace: TraceRecorder | None,
+    ) -> bool:
+        if tracker is not None and tracker.is_expired():
+            state.status = AgentStatus.TIMEOUT
+            self._emit(
+                trace,
+                "guard_triggered",
+                guard="timeout",
+                detail="wall-clock budget expired",
+            )
+            return False
+
+        if state.iteration >= self._max_iterations:
+            state.status = AgentStatus.MAX_ITERATIONS
+            self._emit(
+                trace,
+                "guard_triggered",
+                guard="max_iterations",
+                detail=f"limit={self._max_iterations}",
+            )
+            return False
+
+        return True
+
+    def _call_llm(
+        self,
+        state: AgentState,
+        should_abort: Callable[[], bool] | None,
+        trace: TraceRecorder | None,
+    ) -> LLMResponse | None:
+        started = perf_counter()
+        try:
+            response = self._client.complete(
+                messages=state.conversation,
+                tools=self._registry.list(),
+                should_abort=should_abort,
+            )
+        except DeadlineExceeded as exc:
+            state.llm_attempts.extend(exc.attempt_log)
+            state.status = AgentStatus.TIMEOUT
+            self._emit(
+                trace,
+                "guard_triggered",
+                guard="timeout",
+                detail="deadline expired while retrying LLM call",
+                attempt_log=self._attempts_payload(exc.attempt_log),
+            )
+            return None
+        except LLMCallFailed as exc:
+            state.llm_attempts.extend(exc.attempt_log)
+            state.status = AgentStatus.LLM_FAILED
+            state.error = str(exc)
+            self._emit(
+                trace,
+                "llm_call",
+                iteration=state.iteration,
+                latency_ms=(perf_counter() - started) * 1000,
+                failed=True,
+                attempts=len(exc.attempt_log),
+                attempt_log=self._attempts_payload(exc.attempt_log),
+            )
+            return None
+
+        self._emit_llm_call(trace, state.iteration, started, response)
+        state.llm_attempts.extend(response.attempts)
+        state.usage.record(response.usage)
+        state.conversation.append(assistant_message(response))
+        return response
+
+    def _handle_final_response(
+        self, response: LLMResponse, state: AgentState
+    ) -> None:
+        if not response.text.strip():
+            state.status = AgentStatus.LLM_FAILED
+            state.error = "Model returned an empty final answer"
+            return
+
+        state.final_response = response.text
+        state.status = AgentStatus.COMPLETED
 
     def _token_budget_exhausted(self, state: AgentState) -> bool:
         if self._token_budget is None:
@@ -279,6 +351,22 @@ class AgentLoop:
         if trace is not None:
             trace.emit(type_, **data)
 
+    @staticmethod
+    def _attempts_payload(
+        attempts: Sequence[AttemptRecord],
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                "attempt": a.attempt,
+                "kind": a.kind.value,
+                "delay_s": a.delay_seconds,
+                "retry_after_s": a.retry_after_seconds,
+                "latency_ms": a.latency_ms,
+                "error": a.error[:200],
+            }
+            for a in attempts
+        ]
+
     def _emit_llm_call(
         self,
         trace: TraceRecorder | None,
@@ -288,12 +376,15 @@ class AgentLoop:
     ) -> None:
         usage = response.usage
         self._emit(
-            trace, "llm_call", iteration=iteration,
+            trace,
+            "llm_call",
+            iteration=iteration,
             latency_ms=(perf_counter() - started) * 1000,
             input_tokens=usage.input_tokens if usage else None,
             output_tokens=usage.output_tokens if usage else None,
             tool_call_count=len(response.tool_calls),
             attempts=len(response.attempts) + 1,
+            attempt_log=self._attempts_payload(response.attempts),
         )
 
     def _emit_run_finished(

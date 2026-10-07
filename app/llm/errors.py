@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .retry import ErrorKind
 from .types import AttemptRecord
 

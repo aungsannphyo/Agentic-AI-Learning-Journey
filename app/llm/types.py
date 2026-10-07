@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,7 +17,7 @@ class Usage:
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
 
-    def __add__(self, other: Usage) -> Usage:
+    def __add__(self, other: "Usage") -> "Usage":
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
@@ -63,6 +61,8 @@ class AttemptRecord:
     error: str
     kind: ErrorKind
     delay_seconds: float
+    retry_after_seconds: float | None = None
+    latency_ms: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -99,4 +99,3 @@ def assistant_message(response: LLMResponse) -> dict[str, Any]:
 
 def tool_result_message(call_id: str, output: str) -> dict[str, Any]:
     return {"kind": "tool_result", "call_id": call_id, "output": output}
-
