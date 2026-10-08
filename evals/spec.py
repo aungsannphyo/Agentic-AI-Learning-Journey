@@ -8,7 +8,10 @@ Category = Literal[
     "find_file", "read_fact", "find_symbol", "explain", "negative", "edit"
 ]
 ExpectKind = Literal[
-    "answer_contains_all", "answer_contains_any", "file_content_contains"
+    "answer_contains_all",
+    "answer_contains_any",
+    "file_content_contains",
+    "refusal",
 ]
 
 
@@ -16,15 +19,18 @@ class Expect(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: ExpectKind
-    values: list[str] = Field(min_length=1)
+    values: list[str] = Field(default_factory=list)
     path: str | None = None  # file_content_contains only
+    forbidden: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _check_path(self) -> Self:
+    def _check(self) -> Self:
         if self.kind == "file_content_contains" and not self.path:
             raise ValueError("file_content_contains requires path")
         if self.kind != "file_content_contains" and self.path is not None:
             raise ValueError("path is only valid for file_content_contains")
+        if self.kind != "refusal" and not self.values:
+            raise ValueError(f"{self.kind} requires values")
         return self
 
 

@@ -1,9 +1,15 @@
 # PROGRESS
 
-## Current: Week 3 / Day 3 DONE (165 tests, ruff+mypy clean) — next: W3 D4 (graders)
+## Current: Week 3 / Day 4 DONE (183 tests, ruff+mypy clean) — next: W3 D5 (eval runner + baseline)
+- test_graders.py = 18 tests (165 + 18 = 183)
+- Refusal probe (D4 Exp 3): 2/5 hedged fabrications false-pass ("Stripe ... not configured", "SendGrid ... not documented").
+  Cause: cue checks wording not content. Mitigation: entity blocklist via expect.forbidden + manual audit of negative tasks.
 
 ## Done
-- W3 D3: evals/fixtures/shop (synthetic repo, 7 src+test files, incl. decoy legacy_pricing.py);
+- W3 D4: evals/graders.py (RunResult, Check, Grade, grade(), contains_word word-boundary);
+  spec: Expect.forbidden + kind "refusal"; tasks.yaml: find-discount-file forbidden legacy_pricing,
+  negative tasks → kind refusal; tests/test_graders.py (18 tests) → 183 passed total
+- W3 D3: evals/fixtures/shop (synthetic repo, 8 files: src 6 incl. decoy legacy_pricing.py, tests 1, README 1);
   evals/tasks.yaml (13 tasks: 12 enabled + 1 disabled edit; categories find_file/read_fact/find_symbol/explain/negative/edit);
   evals/spec.py (pydantic TaskFile/Task/Expect, load_tasks, referenced_paths);
   tests/test_eval_tasks.py (13 tests) + test_layering.py rule 4 (1 test) → 165 passed total
@@ -97,11 +103,19 @@ app/tools/executor.py    ToolExecutor(registry): mandatory validation via tool.a
 app/tools/validation.py  format_validation_error(_json)
 app/tools/call.py        ToolCall(call_id, tool_name, arguments, parse_error=None)
 app/tools/call_parsing.py  parse_tool_call(call_id, name, raw_arguments) -> ToolCall (never raises)
+evals/spec.py            TaskFile, Task, Expect(kind, values, path, forbidden), load_tasks, referenced_paths
+evals/graders.py         RunResult(status, answer, read_paths, fixture_dir, workspace_dir), Check, Grade,
+                         contains_word(text, value) [word-boundary regex], grade(task, result)
 tests/builders.py        Centralized shared test fixtures: FakeClock, FakeSDK, ScriptedClient, function_call_item, usage, make_llm_response
 AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architecture reference
 Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
+- Grader is a pure function over RunResult (no AgentState); runner adapts state → RunResult (D5)
+- passed = all checks; score = fraction passed (partial credit separates "answered but didn't read")
+- Incomplete runs (status != completed) fail without answer evaluation
+- No LLM-as-judge in W3: deterministic first, measure residual error, then decide
+- read_paths = successful read_file calls only (from state.history)
 - Retry hint is a transport concern → lives in ResilientClient, not RetryPolicy
 - Hint wins only upward (max with backoff); over-long hint fails fast, never sleeps
 - Viewer reads plain JSONL dicts (no runtime imports); old traces still render
@@ -124,8 +138,10 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 - Dependency direction: evals may import app, never the reverse
 
 ## Open problems / bugs
-- negative-task phrase lists are brittle (false-fail risk) → W3 D4 grader design
-- answer_contains_all has blind spots: decoy co-mention passes; "20" substring false-pass → add answer_not_contains / word-boundary matching (D4)
+- RESOLVED: decoy co-mention (forbidden), substring false-pass (word boundary)
+- Refusal grader has known false-pass (hedged fabrication with "not"; non-.py inventions) → manual audit of negative tasks D5/D6
+- forbidden may false-fail correct explanations that mention the decoy
+- Runner must build RunResult.read_paths from history (success only) and copy fixture to temp workspace
 - 12 tasks × N repeats under TPM 8000 → runner needs rate-aware pacing (D5; use x-ratelimit headers)
 - Each eval run must copy fixture to a temp workspace (D5)
 - RESOLVED: Retry-After ticket (header path verified live: Groq returns `retry-after: 16` HTTP header; message path covered by tests)
@@ -152,9 +168,9 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 (ကိုယ့်ဘာသာဖြည့်ပါ)
 
 ## Eval status
-No agent runs yet. Task set only (12 enabled tasks).
+Grader unit-tested only; no agent runs yet. Refusal probe result (Exp 3): rows 1, 4 passed (honest); row 2 failed (confident fabrication); rows 3, 5 false-passed (hedged fabrication with "not" cue). Manual audit needed for negative tasks.
 
 ## Today's goal (next session)
-W3 D4 (graders)
+W3 D5 (eval runner + baseline)
 
 
