@@ -1,0 +1,42 @@
+{
+  "version": "smoke",
+  "runs": 1,
+  "overall_pass_rate": 1.0,
+  "total_tokens": 3041,
+  "total_cost_usd": 0.0006,
+  "by_category": {
+    "read_fact": 1.0
+  },
+  "tasks": [
+    {
+      "task_id": "read-max-items",
+      "category": "read_fact",
+      "runs": 1,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 3041.0,
+      "mean_wall_s": 18.407,
+      "statuses": {
+        "completed": 1
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "read-max-items",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The system\u2019s configuration sets the limit with the constant `MAX_ITEMS_PER_ORDER` in **src/config.py**:\n\n```python\nMAX_ITEMS_PER_ORDER = 20\n```\n\nTherefore, a single order can contain **up to 20 items**.",
+      "iterations": 4,
+      "total_tokens": 3041,
+      "cost_usd": 0.0006,
+      "wall_s": 18.407,
+      "retries": 1,
+      "run_id": "2cbae53a75324ade812bed30997c9113"
+    }
+  ]
+}

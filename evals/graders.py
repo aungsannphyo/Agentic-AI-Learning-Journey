@@ -36,9 +36,11 @@ class Grade:
 
 def contains_word(text: str, value: str) -> bool:
     """Case-insensitive match not embedded in a longer alphanumeric token
-    or decimal number ('20' matches '20' / '20.', not '2020' or '20.5')."""
+    or decimal number ('20' matches '20', '20.', '20.00'; not '2020' or '20.5')."""
     pattern = (
-        r"(?<![A-Za-z0-9.])" + re.escape(value.lower()) + r"(?![A-Za-z0-9]|\.\d)"
+        r"(?<![A-Za-z0-9.])"
+        + re.escape(value.lower())
+        + r"(?![A-Za-z0-9])(?!\.\d*[1-9])"
     )
     return re.search(pattern, text.lower()) is not None
 

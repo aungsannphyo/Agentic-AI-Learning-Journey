@@ -80,7 +80,7 @@ tasks:
     expect:
       kind: answer_contains_all
       values: ["discount", "tax", "shipping"]
-    must_read: ["src/orders.py", "src/pricing.py"]
+    must_read: ["src/orders.py"]
     max_iterations: 10
 
   - id: explain-stock-check

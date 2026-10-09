@@ -1,0 +1,740 @@
+{
+  "version": "v0.2",
+  "eval_version": 2,
+  "agent_label": "prompt-v1",
+  "runs": 36,
+  "overall_pass_rate": 0.75,
+  "total_tokens": 97829,
+  "total_cost_usd": 0.02088,
+  "by_category": {
+    "explain": 0.5,
+    "find_file": 1.0,
+    "find_symbol": 1.0,
+    "negative": 0.0,
+    "read_fact": 1.0
+  },
+  "tasks": [
+    {
+      "task_id": "find-discount-file",
+      "category": "find_file",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 2214.0,
+      "mean_wall_s": 2.3336666666666663,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "find-inventory-file",
+      "category": "find_file",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 1038.6666666666667,
+      "mean_wall_s": 1.4306666666666665,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "find-config-file",
+      "category": "find_file",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 1231.3333333333333,
+      "mean_wall_s": 1.926,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "read-tax-rate",
+      "category": "read_fact",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 2280.6666666666665,
+      "mean_wall_s": 2.8040000000000003,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "read-free-shipping",
+      "category": "read_fact",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 3297.3333333333335,
+      "mean_wall_s": 3.3193333333333332,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "read-max-items",
+      "category": "read_fact",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 2280.6666666666665,
+      "mean_wall_s": 2.5900000000000003,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "symbol-out-of-stock",
+      "category": "find_symbol",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 1402.3333333333333,
+      "mean_wall_s": 2.0246666666666666,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "symbol-shipping-cost",
+      "category": "find_symbol",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 2311.0,
+      "mean_wall_s": 2.4513333333333334,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.6666666666666666,
+      "flaky": false,
+      "mean_tokens": 1636.3333333333333,
+      "mean_wall_s": 3.382,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "explain-stock-check",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 4957.333333333333,
+      "mean_wall_s": 4.742333333333334,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "negative-payment",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.0,
+      "flaky": false,
+      "mean_tokens": 4962.666666666667,
+      "mean_wall_s": 5.1819999999999995,
+      "statuses": {
+        "max_iterations": 3
+      }
+    },
+    {
+      "task_id": "negative-email",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.0,
+      "flaky": false,
+      "mean_tokens": 4997.333333333333,
+      "mean_wall_s": 5.345666666666666,
+      "statuses": {
+        "max_iterations": 3
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "find-discount-file",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in **`src/pricing.py`**.",
+      "iterations": 3,
+      "total_tokens": 2520,
+      "cost_usd": 0.000453,
+      "wall_s": 2.771,
+      "retries": 0,
+      "run_id": "656e364110bb480a98ef7764191bd4ed"
+    },
+    {
+      "task_id": "find-discount-file",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in **`src/pricing.py`**.",
+      "iterations": 2,
+      "total_tokens": 2030,
+      "cost_usd": 0.000365,
+      "wall_s": 1.907,
+      "retries": 0,
+      "run_id": "4626d4d4e8fb4068870666ee861b3cad"
+    },
+    {
+      "task_id": "find-discount-file",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in:\n\n**src/pricing.py**",
+      "iterations": 2,
+      "total_tokens": 2092,
+      "cost_usd": 0.000402,
+      "wall_s": 2.323,
+      "retries": 0,
+      "run_id": "37cafe0058ef401a85060df22318ef09"
+    },
+    {
+      "task_id": "find-inventory-file",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The stock\u2011tracking logic is implemented in the file:\n\n**`src/inventory.py`**",
+      "iterations": 1,
+      "total_tokens": 1039,
+      "cost_usd": 0.000209,
+      "wall_s": 1.49,
+      "retries": 0,
+      "run_id": "ddde35f7a3264a809715e0e95ab0ea05"
+    },
+    {
+      "task_id": "find-inventory-file",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The stock\u2011tracking functionality is implemented in the file:\n\n**`src/inventory.py`**",
+      "iterations": 1,
+      "total_tokens": 1039,
+      "cost_usd": 0.000209,
+      "wall_s": 1.39,
+      "retries": 0,
+      "run_id": "0356e6147d4845909b6898edd8e3a7e1"
+    },
+    {
+      "task_id": "find-inventory-file",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The stock\u2011tracking logic is implemented in the file:\n\n**src/inventory.py**",
+      "iterations": 1,
+      "total_tokens": 1038,
+      "cost_usd": 0.000209,
+      "wall_s": 1.412,
+      "retries": 0,
+      "run_id": "e9c025bf8df14a469d79ecee87d28984"
+    },
+    {
+      "task_id": "find-config-file",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop\u2019s configuration constants are defined in **`src/config.py`**.",
+      "iterations": 2,
+      "total_tokens": 1418,
+      "cost_usd": 0.000292,
+      "wall_s": 2.223,
+      "retries": 0,
+      "run_id": "29fc4400821845369c62bd5928e07aba"
+    },
+    {
+      "task_id": "find-config-file",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop\u2019s configuration constants are defined in **`src/config.py`**.",
+      "iterations": 2,
+      "total_tokens": 1420,
+      "cost_usd": 0.000294,
+      "wall_s": 2.085,
+      "retries": 0,
+      "run_id": "141a99f19e894a90b5855db5a4e96f11"
+    },
+    {
+      "task_id": "find-config-file",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop\u2019s configuration constants are defined in **`src/config.py`**.",
+      "iterations": 1,
+      "total_tokens": 856,
+      "cost_usd": 0.000183,
+      "wall_s": 1.47,
+      "retries": 0,
+      "run_id": "285c7c62be7e448fa28a4addcefef7e2"
+    },
+    {
+      "task_id": "read-tax-rate",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop\u2019s tax rate is defined in **`src/config.py`**:\n\n```python\nTAX_RATE = 0.07\n```\n\nSo the tax rate used by the shop is **7\u202f%** (i.e., a factor of\u202f0.07).",
+      "iterations": 2,
+      "total_tokens": 1946,
+      "cost_usd": 0.000392,
+      "wall_s": 2.236,
+      "retries": 0,
+      "run_id": "fd598bc501fb4e10abbb5a1bd855cacf"
+    },
+    {
+      "task_id": "read-tax-rate",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop uses a tax rate of **7\u202f%** (defined as `TAX_RATE = 0.07` in `src/config.py`).",
+      "iterations": 4,
+      "total_tokens": 3019,
+      "cost_usd": 0.000582,
+      "wall_s": 3.736,
+      "retries": 0,
+      "run_id": "392ba2a4e4894e9a8ad88f69b29ca9e4"
+    },
+    {
+      "task_id": "read-tax-rate",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shop uses a tax rate of **7\u202f%** (defined as `TAX_RATE = 0.07` in the configuration).",
+      "iterations": 3,
+      "total_tokens": 1877,
+      "cost_usd": 0.00038,
+      "wall_s": 2.44,
+      "retries": 0,
+      "run_id": "de1218281b86458f890a823ba0da6a6c"
+    },
+    {
+      "task_id": "read-free-shipping",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "Shipping is free for any order whose subtotal is **$50.00 or more**. This threshold is defined by the `FREE_SHIPPING_THRESHOLD` constant in `src/config.py` and used in `src/pricing.py` to waive the $4.99 shipping fee when the subtotal meets or exceeds that amount.",
+      "iterations": 4,
+      "total_tokens": 3646,
+      "cost_usd": 0.000722,
+      "wall_s": 3.516,
+      "retries": 0,
+      "run_id": "b74f6a5b6d674e9389b08cd766a6b16d"
+    },
+    {
+      "task_id": "read-free-shipping",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "Shipping is free when the order subtotal reaches the **FREE_SHIPPING_THRESHOLD** defined in the configuration.\n\n- In `src/config.py` the constant is set to:\n\n```python\nFREE_SHIPPING_THRESHOLD = 50.0\n```\n\n- The `shipping_cost` function in `src/pricing.py` checks this value:\n\n```python\ndef shipping_cost(subtotal: float) -> float:\n    if subtotal >= FREE_SHIPPING_THRESHOLD:\n        return 0.0\n    return 4.99\n```\n\nTherefore, **any subtotal of\u202f$50.00 or higher qualifies for free shipping**. Subtotals below $50.00 incur the standard $4.99 shipping fee.",
+      "iterations": 4,
+      "total_tokens": 3754,
+      "cost_usd": 0.000787,
+      "wall_s": 3.554,
+      "retries": 0,
+      "run_id": "3f13ecbfe0464ae4911912e5f3be6d72"
+    },
+    {
+      "task_id": "read-free-shipping",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "Shipping is free for any order whose subtotal is **$50.00 or more** (the `FREE_SHIPPING_THRESHOLD` is set to\u202f50.0).",
+      "iterations": 3,
+      "total_tokens": 2492,
+      "cost_usd": 0.000491,
+      "wall_s": 2.888,
+      "retries": 0,
+      "run_id": "122b7c86019f4dadaa460f85dbe4beb0"
+    },
+    {
+      "task_id": "read-max-items",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The library limits an order to **20 items** (see `MAX_ITEMS_PER_ORDER = 20` in `src/config.py`).",
+      "iterations": 3,
+      "total_tokens": 2260,
+      "cost_usd": 0.000448,
+      "wall_s": 2.301,
+      "retries": 0,
+      "run_id": "375acf2bbfcd4135bcb16e159e4caa6a"
+    },
+    {
+      "task_id": "read-max-items",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The library defines the limit in **`src/config.py`**:\n\n```python\nMAX_ITEMS_PER_ORDER = 20\n```\n\nSo a single order can contain **up to 20 items**. If an order tries to add more than this, the code in `src/orders.py` raises a `ValueError` (\u201ctoo many items in one order\u201d).",
+      "iterations": 3,
+      "total_tokens": 2308,
+      "cost_usd": 0.000477,
+      "wall_s": 2.781,
+      "retries": 0,
+      "run_id": "d23e6f661ff942988e99f608f7530474"
+    },
+    {
+      "task_id": "read-max-items",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The library caps an order to **20 items** \u2013 this is defined by the `MAX_ITEMS_PER_ORDER` constant in `src/config.py`.",
+      "iterations": 3,
+      "total_tokens": 2274,
+      "cost_usd": 0.000457,
+      "wall_s": 2.688,
+      "retries": 0,
+      "run_id": "e39ade15d4344d9fb5856bb5d8480f69"
+    },
+    {
+      "task_id": "symbol-out-of-stock",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "`OutOfStockError` is defined in **src/inventory.py**:\n\n```python\n# src/inventory.py (line\u202f4)\nclass OutOfStockError(Exception):\n    ...\n```\n\nIt is a custom exception that inherits from Python\u2019s built\u2011in `Exception` class.",
+      "iterations": 1,
+      "total_tokens": 932,
+      "cost_usd": 0.00022,
+      "wall_s": 1.489,
+      "retries": 0,
+      "run_id": "f5df09f1704540b9b06b0c778db89c77"
+    },
+    {
+      "task_id": "symbol-out-of-stock",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "`OutOfStockError` is defined in **src/inventory.py**:\n\n```python\nclass OutOfStockError(Exception):\n    pass\n```\n\nSo the definition lives in the `src/inventory.py` file.",
+      "iterations": 2,
+      "total_tokens": 1627,
+      "cost_usd": 0.000345,
+      "wall_s": 2.073,
+      "retries": 0,
+      "run_id": "3848261818784bddbee0f44d297441f4"
+    },
+    {
+      "task_id": "symbol-out-of-stock",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "`OutOfStockError` is defined in **src/inventory.py**:\n\n```python\nclass OutOfStockError(Exception):\n    pass\n```\n\nSo the definition lives in the `src/inventory.py` file.",
+      "iterations": 2,
+      "total_tokens": 1648,
+      "cost_usd": 0.000358,
+      "wall_s": 2.512,
+      "retries": 0,
+      "run_id": "7df9933fac14422fba173954a60a23f2"
+    },
+    {
+      "task_id": "symbol-shipping-cost",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The shipping\u2011cost logic is implemented by the **`shipping_cost`** function, which is defined in **`src/pricing.py`**.",
+      "iterations": 2,
+      "total_tokens": 1611,
+      "cost_usd": 0.000329,
+      "wall_s": 1.958,
+      "retries": 0,
+      "run_id": "6d61d702696841a7a02c9acfa7eb66a1"
+    },
+    {
+      "task_id": "symbol-shipping-cost",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The **`shipping_cost`** function determines the shipping cost, and it is defined in the file **`src/pricing.py`**.",
+      "iterations": 3,
+      "total_tokens": 2624,
+      "cost_usd": 0.000511,
+      "wall_s": 2.701,
+      "retries": 0,
+      "run_id": "8b092440664d44cd9b9b71f9dd0f241a"
+    },
+    {
+      "task_id": "symbol-shipping-cost",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The function that determines the shipping cost is **`shipping_cost`**.  \nIt is defined in the file **`src/pricing.py`**.  \n\nIn that file you\u2019ll see:\n\n```python\ndef shipping_cost(subtotal: float) -> float:\n    if subtotal >= FREE_SHIPPING_THRESHOLD:\n        return 0.0\n    return 4.99\n```\n\nSo the shipping\u2011cost logic lives in `src/pricing.py` under the `shipping_cost` function.",
+      "iterations": 3,
+      "total_tokens": 2698,
+      "cost_usd": 0.000555,
+      "wall_s": 2.695,
+      "retries": 0,
+      "run_id": "96efdc9912dc4ce288230d2fc6d23764"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Below is a typical step\u2011by\u2011step breakdown of how an e\u2011commerce system (or any ordering system) calculates the **order total** that a customer sees and ultimately pays.\n\n---\n\n## 1. Gather the Order\u2019s Line Items  \nEach product the customer adds to the cart becomes a **line item**. For every line item you need:\n\n| Data | Description |\n|------|-------------|\n| **Quantity** | How many units the customer wants. |\n| **Unit Price** | The price of a single unit (often pulled from the product catalog). |\n| **Item\u2011level discounts** | Any promotions that apply to that specific product (e.g., \u201cBuy 2 ",
+      "iterations": 0,
+      "total_tokens": 1624,
+      "cost_usd": 0.000826,
+      "wall_s": 3.335,
+      "retries": 0,
+      "run_id": "99c94c0bd16d4e5c90f571cac76ffb76"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 2,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Below is a typical step\u2011by\u2011step breakdown of how an e\u2011commerce system (or any ordering system) calculates the **order total** that the customer sees and ultimately pays.\n\n---\n\n## 1. Gather the Line Items  \nEach product the customer adds to the cart becomes a **line item**. For every line item you need:\n\n| Data | Description |\n|------|-------------|\n| **Unit price** | The price of a single unit of the product (often stored in the product catalog). |\n| **Quantity** | How many units the customer wants. |\n| **Item\u2011level discounts** (optional) | Any discount that applies only to that product ",
+      "iterations": 0,
+      "total_tokens": 1671,
+      "cost_usd": 0.000855,
+      "wall_s": 3.465,
+      "retries": 0,
+      "run_id": "e8bd662b38ff4f0fb4a122d4228c80c3"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 3,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Computing an order total is a multi\u2011step process that takes all the components of a purchase and combines them into a single amount that the customer will pay. Below is a typical, step\u2011by\u2011step breakdown of how most e\u2011commerce systems (or point\u2011of\u2011sale systems) calculate the final order total.\n\n---\n\n## 1. Gather the Line Items  \n**What it is:** The list of products (or services) the customer wants to buy.  \n**Data needed for each line item:**  \n- **Unit price** \u2013 the price of a single unit of the product.  \n- **Quantity** \u2013 how many units the customer is buying.  \n- **Item\u2011level discounts",
+      "iterations": 0,
+      "total_tokens": 1614,
+      "cost_usd": 0.00082,
+      "wall_s": 3.346,
+      "retries": 0,
+      "run_id": "a16355514ea042bb8c9d80049b3adb85"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When an order line is added, the `Order.add_line` method first checks the overall item\u2011count limit and then calls the inventory to reserve the requested quantity:\n\n```python\nself._inventory.remove(sku, quantity)\n```\n\nThe `Inventory.remove` implementation is:\n\n```python\ndef remove(self, sku: str, quantity: int) -> None:\n    available = self._stock.get(sku, 0)\n    if available < quantity:\n        raise OutOfStockError(f\"only {available} of {sku} left\")\n    self._stock[sku] = available - quantity\n```\n\nTherefore, if the caller tries to add a line with a `quantity` that exceeds the current stock fo",
+      "iterations": 4,
+      "total_tokens": 4814,
+      "cost_usd": 0.001014,
+      "wall_s": 4.379,
+      "retries": 0,
+      "run_id": "a3387181d99c4a5cabc6a06d51dfc579"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When an order line is added, `Order.add_line` first checks the overall item\u2011count limit and then calls the inventory\u2019s `remove` method:\n\n```python\nself._inventory.remove(sku, quantity)\n```\n\nThe `Inventory.remove` implementation is:\n\n```python\ndef remove(self, sku: str, quantity: int) -> None:\n    available = self._stock.get(sku, 0)\n    if available < quantity:\n        raise OutOfStockError(f\"only {available} of {sku} left\")\n    self._stock[sku] = available - quantity\n```\n\nTherefore, if the requested `quantity` is greater than the amount currently in stock for that `sku`, `Inventory.remove` rai",
+      "iterations": 4,
+      "total_tokens": 4758,
+      "cost_usd": 0.000981,
+      "wall_s": 5.046,
+      "retries": 0,
+      "run_id": "42d61269c96649858db5fd84d0ace9eb"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When an order line is added, the `Order.add_line` method first checks the overall item\u2011count limit, and then it asks the inventory to **remove** the requested quantity:\n\n```python\nself._inventory.remove(sku, quantity)\n```\n\nThe `Inventory.remove` implementation looks up the current stock for the given SKU and raises an `OutOfStockError` if the requested quantity exceeds what is available:\n\n```python\navailable = self._stock.get(sku, 0)\nif available < quantity:\n    raise OutOfStockError(f\"only {available} of {sku} left\")\n```\n\nTherefore, if a caller tries to add a line with a quantity larger than ",
+      "iterations": 5,
+      "total_tokens": 5300,
+      "cost_usd": 0.00107,
+      "wall_s": 4.802,
+      "retries": 0,
+      "run_id": "a4e0a5c12f8e41d3a071caa9ed3e9b2e"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 1,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5191,
+      "cost_usd": 0.001005,
+      "wall_s": 5.7,
+      "retries": 0,
+      "run_id": "7411e5856cb84528b0587a2626a926c6"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 2,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4566,
+      "cost_usd": 0.000884,
+      "wall_s": 4.809,
+      "retries": 0,
+      "run_id": "71ddca87070441b69cb251ff562dd2cd"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 3,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5131,
+      "cost_usd": 0.000965,
+      "wall_s": 5.037,
+      "retries": 0,
+      "run_id": "2a3b7d32e13f4fd7a204b9679c8a6563"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 1,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4627,
+      "cost_usd": 0.000877,
+      "wall_s": 5.442,
+      "retries": 0,
+      "run_id": "ea437e897ec440a0be315f710617f63a"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 2,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4657,
+      "cost_usd": 0.000873,
+      "wall_s": 5.521,
+      "retries": 0,
+      "run_id": "216339afb82e4996a3bc3df389f395bc"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 3,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5708,
+      "cost_usd": 0.00104,
+      "wall_s": 5.074,
+      "retries": 0,
+      "run_id": "62b6e4e501ec49b3a0e2a3cef54a5818"
+    }
+  ]
+}

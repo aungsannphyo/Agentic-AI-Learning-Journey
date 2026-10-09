@@ -1,11 +1,19 @@
 # PROGRESS
 
-## Current: Week 3 / Day 4 DONE (183 tests, ruff+mypy clean) — next: W3 D5 (eval runner + baseline)
-- test_graders.py = 18 tests (165 + 18 = 183)
-- Refusal probe (D4 Exp 3): 2/5 hedged fabrications false-pass ("Stripe ... not configured", "SendGrid ... not documented").
-  Cause: cue checks wording not content. Mitigation: entity blocklist via expect.forbidden + manual audit of negative tasks.
+## Current: Week 3 DONE (199 tests, tag eval-baseline-v0.2) — next: W4 D1 (ReAct)
+- Baseline v0.2 (corrected eval): 75% overall pass rate (27/36 runs, 97,829 tokens, $0.0209); find_file 100%, find_symbol 100%, read_fact 100%, explain 50%, negative 0%
+- Grader bug fixed (trailing-zero decimal regex), explain-orders must_read updated, EVAL_VERSION=2, report fields eval_version/agent_label, compare warning
+- 199 tests passed, ruff+mypy clean
 
 ## Done
+- W3 D6: grader fix (trailing-zero decimals, test-first), explain-orders must_read=[orders.py],
+  EVAL_VERSION=2 in spec.py, report fields eval_version/agent_label, compare warns on eval_version mismatch,
+  tests +3 → 199 passed total
+- Baseline v0.2 (corrected eval): 75% overall pass rate (27/36 runs, 97,829 tokens, $0.0209); find_file 100%, find_symbol 100%, read_fact 100%, explain 50%, negative 0%
+- W3 D5: evals/runner.py (run_task_once temp-copy isolation, run_suite N repeats + token-based cooldown,
+  summarize/flaky, build_report), evals/compare.py, evals/run.py (python -m evals.run [--version --repeats --task --compare]),
+  Makefile; entity blocklist for negative tasks; tests/test_eval_runner.py (13 tests) → 196 passed total
+- Baseline v0.1: 64% overall pass rate (36 runs, 98,489 tokens, $0.0210); find_file 100%, find_symbol 100%, explain 50%, read_fact 56%, negative 0%
 - W3 D4: evals/graders.py (RunResult, Check, Grade, grade(), contains_word word-boundary);
   spec: Expect.forbidden + kind "refusal"; tasks.yaml: find-discount-file forbidden legacy_pricing,
   negative tasks → kind refusal; tests/test_graders.py (18 tests) → 183 passed total
@@ -106,11 +114,21 @@ app/tools/call_parsing.py  parse_tool_call(call_id, name, raw_arguments) -> Tool
 evals/spec.py            TaskFile, Task, Expect(kind, values, path, forbidden), load_tasks, referenced_paths
 evals/graders.py         RunResult(status, answer, read_paths, fixture_dir, workspace_dir), Check, Grade,
                          contains_word(text, value) [word-boundary regex], grade(task, result)
+evals/runner.py          RunRecord, TaskSummary, read_paths_from, to_run_result, run_task_once, cooldown_for,
+                         run_suite(repeats, cooldown, pacing), summarize, category_pass_rates, build_report
+evals/compare.py         load_report, compare(old, new)
+evals/run.py             CLI for running eval suites and comparing reports (python -m evals.run)
+Makefile                 eval, test targets
 tests/builders.py        Centralized shared test fixtures: FakeClock, FakeSDK, ScriptedClient, function_call_item, usage, make_llm_response
 AgentRunTimeCodeBaseExplain.md  Bilingual technical documentation and architecture reference
 Decision family learning artifacts removed (preserved in git history, commit before 5f600dc)
 
 ## Key design decisions
+- eval_version is bumped by hand when graders/tasks change meaning; compare warns on mismatch
+- Baselines are only valid at a given eval_version; v0.1 (eval_version 1) is not a baseline
+- Client injected via factory; fixture copied per run; grade before workspace is deleted
+- Pacing: sequential + cooldown=max(base, tokens/TPM*60); header-aware pacing deferred
+- Compare threshold 20% (noise at N=3); noise floor measured by running same code twice
 - Grader is a pure function over RunResult (no AgentState); runner adapts state → RunResult (D5)
 - passed = all checks; score = fraction passed (partial credit separates "answered but didn't read")
 - Incomplete runs (status != completed) fail without answer evaluation
@@ -138,12 +156,21 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 - Dependency direction: evals may import app, never the reverse
 
 ## Open problems / bugs
+- RESOLVED: grader "50.00" false-fail (read-free-shipping 0% -> 100%)
+- Negative tasks: no stopping criterion (6/6 max_iterations in v0.1 & v0.2) → W4 D5 give-up policy; trace confirmed iterative search variations without stopping
+- Unverified answer (explain-orders 0/3): agent answered from domain memory at iter 0 without reading orders.py; must_read caught it
+- Thousands separators ("1,000") not handled by contains_word
+- LoopGuard misses near-duplicate searches (different query strings)
+- eval_version bump is manual
+- RESOLVED: runner fixture isolation (temp workspace copy per run) & successful read tracking
+- Eval system prompt differs from main.py (adds "say so if missing"); prompt must be versioned in reports (W4)
+- N=3 gives wide confidence intervals; need N>=5 for trust
+- Header-aware pacing (x-ratelimit-remaining-tokens) still open
+- Latency in reports excludes cooldown but includes retry waits
 - RESOLVED: decoy co-mention (forbidden), substring false-pass (word boundary)
 - Refusal grader has known false-pass (hedged fabrication with "not"; non-.py inventions) → manual audit of negative tasks D5/D6
 - forbidden may false-fail correct explanations that mention the decoy
-- Runner must build RunResult.read_paths from history (success only) and copy fixture to temp workspace
 - 12 tasks × N repeats under TPM 8000 → runner needs rate-aware pacing (D5; use x-ratelimit headers)
-- Each eval run must copy fixture to a temp workspace (D5)
 - RESOLVED: Retry-After ticket (header path verified live: Groq returns `retry-after: 16` HTTP header; message path covered by tests)
 - Proactive throttling from x-ratelimit-remaining/reset-tokens headers (avoid 429 entirely; ties into W9 context budget)
 - Viewer llm_ms includes retry sleep; split wait vs model time (delay_s vs latency_ms)
@@ -168,9 +195,14 @@ Decision family learning artifacts removed (preserved in git history, commit bef
 (ကိုယ့်ဘာသာဖြည့်ပါ)
 
 ## Eval status
-Grader unit-tested only; no agent runs yet. Refusal probe result (Exp 3): rows 1, 4 passed (honest); row 2 failed (confident fabrication); rows 3, 5 false-passed (hedged fabrication with "not" cue). Manual audit needed for negative tasks.
+v0.2 (eval_version 2, N=3, 36 runs): 75% overall; find_file 100, find_symbol 100, read_fact 100,
+explain 50, negative 0. tokens 97829, cost $0.021. Eval-side failures: 0.
+Agent-side (9/36): negative no-stopping-criterion x6 (empty searches ignored), explain-orders x3
+(answers from general knowledge at iteration 0, never reads repo).
+Correction: earlier ~81% estimate wrong (explain-orders is unverified-answer, not over-constraint).
+Noise floor (v0.2b): not measured yet.
 
 ## Today's goal (next session)
-W3 D5 (eval runner + baseline)
+W4 D1 (ReAct pattern with native tool calling)
 
 

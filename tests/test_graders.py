@@ -36,6 +36,13 @@ def test_word_boundary_rejects_embedded_numbers() -> None:
     assert not contains_word("rate 0.07", "07")
 
 
+def test_word_boundary_accepts_trailing_zero_decimals() -> None:
+    assert contains_word("free from $50.00 or more", "50")
+    assert contains_word("limit is 20.", "20")
+    assert not contains_word("limit 20.5", "20")
+    assert not contains_word("since 2020", "20")
+
+
 def test_word_boundary_matches_paths_case_insensitively() -> None:
     assert contains_word("See `SRC/Pricing.py`.", "src/pricing.py")
 
