@@ -6,11 +6,12 @@
 
 | File | Module / Layer | Files Included | Use Case / Context |
 |:---|:---|:---:|:---|
-| [`01_root.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/01_root.md) | Root & Entry Layer | 3 files | `main.py`, `trace_view.py`, `conftest.py` |
-| [`02_llm.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/02_llm.md) | LLM Subsystem Layer | 10 files | `app/llm/*` (clients, retry, errors, types) |
+| [`01_root.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/01_root.md) | Root & Entry Layer | 3 files | `app/main.py`, `app/trace_view.py`, `conftest.py` |
+| [`02_llm.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/02_llm.md) | LLM Subsystem Layer | 11 files | `app/llm/*` (clients, retry, reasoning, errors, types) |
 | [`03_tools.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/03_tools.md) | Tools & Sandbox Layer | 14 files | `app/tools/*` (schemas, validation, workspace, file/search tools) |
-| [`04_agent.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/04_agent.md) | Agent Runtime Layer | 9 files | `app/agent/*` (loop, state, guards, budgets, trace) |
+| [`04_agent.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/04_agent.md) | Agent Runtime Layer | 15 files | `app/agent/*` (loop, planner, nudges, ledger, guards, budgets, trace) |
 | [`05_tests_fixtures.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/05_tests_fixtures.md) | Tests & Fixtures | 1 file | `tests/builders.py` (shared fixtures & doubles) |
+| [`06_evals.md`](file:///c:/Users/uaung/aung_sann_phyo/person/agentic-ai-learning/agent-runtime/docs/code-base-explain/code-base-snapshot/06_evals.md) | Evaluation Subsystem | 6 files | `evals/*` (spec, graders, runner, compare, run, init) |
 
 ---
 

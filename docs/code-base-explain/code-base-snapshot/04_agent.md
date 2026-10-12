@@ -1,8 +1,8 @@
 # Agent Runtime — Agent Runtime & Control Layer Snapshot (`app/agent/`)
 
-AgentLoop orchestration (refactored cognitive complexity 6), LoopGuard, ConsecutiveCounter, wall-clock & token budgets, state models, and structured tracing engine.
+AgentLoop orchestration, upfront planning (`Planner`), evidence ledger, reactive nudges (`nudges.py`), LoopGuard, ConsecutiveCounter, wall-clock & token budgets, state models, and structured tracing engine.
 
-**Files count**: 9 files | **Active status**: 151 tests passed, ruff/mypy clean
+**Files count**: 15 files | **Active status**: 278 passed, 3 xfailed, ruff/mypy clean
 
 ## ဖိုင်များ မာတိကာ (Table of Contents)
 
@@ -11,8 +11,14 @@ AgentLoop orchestration (refactored cognitive complexity 6), LoopGuard, Consecut
 - [`app/agent/clock.py`](#appagentclockpy)
 - [`app/agent/cost.py`](#appagentcostpy)
 - [`app/agent/history.py`](#appagenthistorypy)
+- [`app/agent/ledger.py`](#appagentledgerpy)
 - [`app/agent/loop_guard.py`](#appagentloopguardpy)
 - [`app/agent/loop.py`](#appagentlooppy)
+- [`app/agent/nudges.py`](#appagentnudgespy)
+- [`app/agent/plan.py`](#appagentplanpy)
+- [`app/agent/plan_parsing.py`](#appagentplanparsingpy)
+- [`app/agent/planner.py`](#appagentplannerpy)
+- [`app/agent/prompts.py`](#appagentpromptspy)
 - [`app/agent/state.py`](#appagentstatepy)
 - [`app/agent/trace.py`](#appagenttracepy)
 
@@ -25,12 +31,16 @@ from .budget import BudgetTracker, RuntimeBudget
 from .clock import Clock, MonotonicClock
 from .cost import ModelPricing, TokenBudget, UsageTracker
 from .history import ExecutionHistory, ExecutionRecord
+from .ledger import build_ledger
 from .loop import AgentLoop
 from .loop_guard import ConsecutiveCounter, LoopGuard, call_fingerprint
-from .state import AgentState, AgentStatus
+from .prompts import PLANNER_V1, PROMPTS, Prompt, get_prompt
+from .state import AgentState, AgentStatus, Thought
 from .trace import InMemorySink, JsonlFileSink, TraceEvent, TraceRecorder, TraceSink
 
 __all__ = [
+    "PLANNER_V1",
+    "PROMPTS",
     "AgentLoop",
     "AgentState",
     "AgentStatus",
@@ -44,13 +54,17 @@ __all__ = [
     "LoopGuard",
     "ModelPricing",
     "MonotonicClock",
+    "Prompt",
     "RuntimeBudget",
+    "Thought",
     "TokenBudget",
     "TraceEvent",
     "TraceRecorder",
     "TraceSink",
     "UsageTracker",
+    "build_ledger",
     "call_fingerprint",
+    "get_prompt",
 ]
 ```
 
@@ -306,6 +320,82 @@ class ExecutionHistory:
 
 ---
 
+### `app/agent/ledger.py` <a id="appagentledgerpy"></a>
+
+```python
+"""Evidence ledger: objective, code-derived facts about what the agent has
+actually done. Built from ExecutionHistory, never from model claims.
+"""
+
+from collections.abc import Sequence
+
+from .history import ExecutionRecord
+
+_MAX_PER_SECTION = 5
+_MAX_ERROR_CHARS = 80
+_MAX_ARG_CHARS = 40
+
+
+def _clip(text: str, limit: int) -> str:
+    one_line = " ".join(text.split())
+    return one_line if len(one_line) <= limit else one_line[: limit - 3] + "..."
+
+
+def _capped(items: list[str]) -> str:
+    shown = items[:_MAX_PER_SECTION]
+    extra = len(items) - len(shown)
+    text = ", ".join(shown)
+    return f"{text} (+{extra} more)" if extra > 0 else text
+
+
+def _search_label(record: ExecutionRecord) -> str:
+    query = _clip(str(record.arguments.get("query", "")), _MAX_ARG_CHARS)
+    count = len(record.result) if isinstance(record.result, list) else 0
+    return f'"{query}" ({count} matches)'
+
+
+def _failure_label(record: ExecutionRecord) -> str:
+    args = _clip(
+        ", ".join(f"{v}" for v in record.arguments.values()), _MAX_ARG_CHARS
+    )
+    error = _clip(record.error or "unknown error", _MAX_ERROR_CHARS)
+    return f"{record.tool_name}({args}): {error}"
+
+
+def build_ledger(records: Sequence[ExecutionRecord]) -> str | None:
+    """Return a short progress note, or None when there is nothing to report."""
+    files: list[str] = []
+    searches: list[str] = []
+    failures: list[str] = []
+
+    for record in records:
+        if not record.success:
+            failures.append(_failure_label(record))
+        elif record.tool_name == "read_file":
+            path = str(record.arguments.get("path", ""))
+            if path and path not in files:
+                files.append(path)
+        elif record.tool_name == "search_text":
+            searches.append(_search_label(record))
+
+    lines: list[str] = []
+    if files:
+        lines.append(f"- Files read: {_capped(files)}")
+    if searches:
+        lines.append(f"- Searches done: {_capped(searches)}")
+    if failures:
+        lines.append(f"- Failed calls: {_capped(failures)}")
+    if not lines:
+        return None
+
+    return (
+        "System note (not from the user). Progress so far, from your actual "
+        "tool calls:\n" + "\n".join(lines)
+    )
+```
+
+---
+
 ### `app/agent/loop_guard.py` <a id="appagentloopguardpy"></a>
 
 ```python
@@ -328,11 +418,7 @@ def call_fingerprint(
 
 
 class LoopGuard:
-    """Blocks a tool call when the same call is made for the Nth time.
-
-    block_on_nth_call=3 means the 1st and 2nd identical calls are allowed
-    and the 3rd is blocked BEFORE execution.
-    """
+    """Blocks a tool call when the same call is made for the Nth time."""
 
     def __init__(self, block_on_nth_call: int = 3) -> None:
         if block_on_nth_call < 1:
@@ -348,10 +434,7 @@ class LoopGuard:
 
 
 class ConsecutiveCounter:
-    """Counts consecutive failures; any success resets it.
-
-    failure() returns True when the Nth consecutive failure is reached.
-    """
+    """Counts consecutive failures; any success resets it."""
 
     def __init__(self, limit: int) -> None:
         if limit < 1:
@@ -392,30 +475,25 @@ from .budget import BudgetTracker, RuntimeBudget
 from .clock import Clock, MonotonicClock
 from .cost import ModelPricing, TokenBudget, UsageTracker
 from .history import ExecutionRecord
+from .ledger import build_ledger
 from .loop_guard import ConsecutiveCounter, LoopGuard, call_fingerprint
-from .state import AgentState, AgentStatus
+from .nudges import (
+    EMPTY_ANSWER_NUDGE,
+    failure_nudge,
+    no_progress_nudge,
+    trailing_empty_searches,
+    trailing_failures,
+)
+from .planner import Planner
+from .state import AgentState, AgentStatus, Thought
 from .trace import TraceRecorder, TraceSink
+
+_MAX_TRACE_THOUGHT_CHARS = 500
+_PLAN_HEADER = "Plan (advisory; revise it if observations contradict it):"
 
 
 class AgentLoop:
-    """Orchestrates LLM decisions and tool execution.
-
-    state.conversation is a provider-neutral, JSON-serializable message list.
-
-    Order per iteration
-    ───────────────────
-    1. wall-clock budget    → TIMEOUT
-    2. iteration budget     → MAX_ITERATIONS
-    3. LLM call             → LLM_FAILED / TIMEOUT on retry-layer errors
-    4. record usage
-    5. final answer?        → COMPLETED (accepted even if over token budget)
-    6. token budget         → TOKEN_BUDGET_EXCEEDED (before any side effect)
-
-    Then for each requested tool call:
-    7. parse_error?         → observation to model; N consecutive → LOOP_DETECTED
-    8. loop guard           → LOOP_DETECTED (before execution)
-    9. tool execution       → validation (mandatory) → run → observation
-    """
+    """Orchestrates LLM decisions and tool execution."""
 
     def __init__(
         self,
@@ -430,6 +508,12 @@ class AgentLoop:
         pricing: ModelPricing | None = None,
         max_consecutive_malformed: int = 3,
         trace: TraceSink | None = None,
+        use_plan: bool = False,
+        max_plan_steps: int = 6,
+        ledger_every: int | None = None,
+        failure_nudge_after: int | None = None,
+        retry_empty_answer: bool = False,
+        no_progress_after: int | None = None,
     ) -> None:
         if (
             token_budget is not None
@@ -439,6 +523,12 @@ class AgentLoop:
             raise ValueError(
                 "token_budget.max_cost_usd requires pricing to be configured"
             )
+        if ledger_every is not None and ledger_every < 1:
+            raise ValueError("ledger_every must be >= 1")
+        if failure_nudge_after is not None and failure_nudge_after < 1:
+            raise ValueError("failure_nudge_after must be >= 1")
+        if no_progress_after is not None and no_progress_after < 1:
+            raise ValueError("no_progress_after must be >= 1")
 
         self._client = client
         self._registry = registry
@@ -451,6 +541,13 @@ class AgentLoop:
         self._pricing = pricing
         self._max_consecutive_malformed = max_consecutive_malformed
         self._trace_sink = trace
+        self._planner: Planner | None = (
+            Planner(client, max_steps=max_plan_steps) if use_plan else None
+        )
+        self._ledger_every = ledger_every
+        self._failure_nudge_after = failure_nudge_after
+        self._retry_empty_answer = retry_empty_answer
+        self._no_progress_after = no_progress_after
 
     def run(self, user_prompt: str) -> AgentState:
         state = AgentState(
@@ -484,6 +581,9 @@ class AgentLoop:
             max_iterations=self._max_iterations,
         )
 
+        if self._planner is not None:
+            self._make_plan(self._planner, state, user_prompt, should_abort, trace)
+
         while not state.is_finished:
             self._run_iteration(
                 state=state,
@@ -513,8 +613,10 @@ class AgentLoop:
         if response is None:
             return
 
+        self._record_thought(response, state)
+
         if not response.tool_calls:
-            self._handle_final_response(response, state)
+            self._handle_final_response(response, state, trace)
             return
 
         if self._token_budget_exhausted(state):
@@ -530,6 +632,9 @@ class AgentLoop:
             list(response.tool_calls), state, guard, malformed, trace
         )
         state.iteration += 1
+        self._maybe_add_ledger(state, trace)
+        self._maybe_add_failure_nudge(state, trace)
+        self._maybe_add_no_progress_nudge(state, trace)
 
     def _check_iteration_budget(
         self,
@@ -605,9 +710,20 @@ class AgentLoop:
         return response
 
     def _handle_final_response(
-        self, response: LLMResponse, state: AgentState
+        self,
+        response: LLMResponse,
+        state: AgentState,
+        trace: TraceRecorder | None = None,
     ) -> None:
         if not response.text.strip():
+            if self._retry_empty_answer and state.empty_answer_retries < 1:
+                state.empty_answer_retries += 1
+                state.conversation.append(user_message(EMPTY_ANSWER_NUDGE))
+                self._emit(
+                    trace, "empty_answer_nudged", iteration=state.iteration
+                )
+                state.iteration += 1
+                return
             state.status = AgentStatus.LLM_FAILED
             state.error = "Model returned an empty final answer"
             return
@@ -721,6 +837,72 @@ class AgentLoop:
             )
         )
 
+    def _maybe_add_ledger(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        every = self._ledger_every
+        if every is None or state.is_finished:
+            return
+        if state.iteration % every != 0:
+            return
+        note = build_ledger(state.history.records())
+        if note is None:
+            return
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace, "ledger_added", iteration=state.iteration, chars=len(note)
+        )
+
+    def _maybe_add_failure_nudge(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        after = self._failure_nudge_after
+        if after is None or state.is_finished:
+            return
+        records = state.history.records()
+        tail = trailing_failures(records)
+        tail_len = len(tail)
+        if tail_len == 0:
+            state.last_nudged_failures = 0
+            return
+        if tail_len <= state.last_nudged_failures:
+            return
+        note = failure_nudge(records, threshold=after)
+        if note is None:
+            return
+        state.last_nudged_failures = tail_len
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace,
+            "failure_nudged",
+            iteration=state.iteration,
+            failures=tail_len,
+        )
+
+    def _maybe_add_no_progress_nudge(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        after = self._no_progress_after
+        if after is None or state.is_finished:
+            return
+        streak = len(trailing_empty_searches(state.history.records()))
+        if streak == 0:
+            state.last_nudged_empty = 0
+            return
+        if streak <= state.last_nudged_empty:
+            return
+        note = no_progress_nudge(state.history.records(), threshold=after)
+        if note is None:
+            return
+        state.last_nudged_empty = streak
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace,
+            "no_progress_nudged",
+            iteration=state.iteration,
+            empty_searches=streak,
+        )
+
     @staticmethod
     def _emit(trace: TraceRecorder | None, type_: str, **data: Any) -> None:
         if trace is not None:
@@ -758,6 +940,7 @@ class AgentLoop:
             input_tokens=usage.input_tokens if usage else None,
             output_tokens=usage.output_tokens if usage else None,
             tool_call_count=len(response.tool_calls),
+            thought=self._thought_for_trace(response),
             attempts=len(response.attempts) + 1,
             attempt_log=self._attempts_payload(response.attempts),
         )
@@ -771,6 +954,343 @@ class AgentLoop:
             iterations=state.iteration, error=state.error,
             total_tokens=report["total_tokens"], cost_usd=report["cost_usd"],
         )
+
+    @staticmethod
+    def _record_thought(response: LLMResponse, state: AgentState) -> None:
+        text = response.reasoning.strip()
+        if text:
+            state.thoughts.append(Thought(iteration=state.iteration, text=text))
+
+    @staticmethod
+    def _thought_for_trace(response: LLMResponse) -> str | None:
+        text = response.reasoning.strip()
+        return text[:_MAX_TRACE_THOUGHT_CHARS] if text else None
+
+    def _make_plan(
+        self,
+        planner: Planner,
+        state: AgentState,
+        user_prompt: str,
+        should_abort: Callable[[], bool] | None,
+        trace: TraceRecorder | None,
+    ) -> None:
+        started = perf_counter()
+        try:
+            outcome = planner.make(user_prompt, should_abort)
+        except (LLMCallFailed, DeadlineExceeded) as exc:
+            state.llm_attempts.extend(exc.attempt_log)
+            self._emit(
+                trace,
+                "plan_failed",
+                reason=f"{type(exc).__name__}: {str(exc)[:200]}",
+                latency_ms=(perf_counter() - started) * 1000,
+            )
+            return
+
+        response = outcome.response
+        state.llm_attempts.extend(response.attempts)
+        state.usage.record(response.usage)
+        latency_ms = (perf_counter() - started) * 1000
+
+        if outcome.plan is None:
+            self._emit(
+                trace,
+                "plan_failed",
+                reason=outcome.failure or "",
+                latency_ms=latency_ms,
+            )
+            return
+
+        state.plan = outcome.plan
+        state.conversation[0] = user_message(
+            f"{user_prompt}\n\n{_PLAN_HEADER}\n{outcome.plan.render()}"
+        )
+        usage = response.usage
+        reasoning = response.reasoning.strip()
+        self._emit(
+            trace,
+            "plan_created",
+            steps=[s.description for s in outcome.plan.steps],
+            latency_ms=latency_ms,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+            thought=reasoning[:_MAX_TRACE_THOUGHT_CHARS] or None,
+        )
+```
+
+---
+
+### `app/agent/nudges.py` <a id="appagentnudgespy"></a>
+
+```python
+"""Code-triggered corrective nudges. Pure functions over ExecutionRecord:
+no provider or loop knowledge. A nudge is advisory text appended as an
+append-only user message (same mechanism as the evidence ledger).
+"""
+
+from collections.abc import Sequence
+
+from .history import ExecutionRecord
+
+_MAX_ERROR_CHARS = 100
+_MAX_LISTED = 2
+
+
+def _clip(text: str, limit: int) -> str:
+    one_line = " ".join(text.split())
+    return one_line if len(one_line) <= limit else one_line[: limit - 3] + "..."
+
+
+def trailing_failures(records: Sequence[ExecutionRecord]) -> list[ExecutionRecord]:
+    """Consecutive failed calls at the END of history (a success resets)."""
+    tail: list[ExecutionRecord] = []
+    for record in reversed(records):
+        if record.success:
+            break
+        tail.append(record)
+    tail.reverse()
+    return tail
+
+
+def failure_nudge(
+    records: Sequence[ExecutionRecord], *, threshold: int = 2
+) -> str | None:
+    """Return a recovery note when the last `threshold`+ calls all failed."""
+    tail = trailing_failures(records)
+    if len(tail) < threshold:
+        return None
+    shown = tail[-_MAX_LISTED:]
+    details = "; ".join(
+        f"{r.tool_name}: {_clip(r.error or 'unknown error', _MAX_ERROR_CHARS)}"
+        for r in shown
+    )
+    return (
+        "System note (not from the user). Your last "
+        f"{len(tail)} tool calls failed ({details}). "
+        "Check paths with list_files before retrying the same call."
+    )
+
+
+EMPTY_ANSWER_NUDGE = (
+    "System note (not from the user). Your last reply contained neither a "
+    "tool call nor a final answer. Call a tool, or give your final answer."
+)
+
+
+def trailing_empty_searches(records: Sequence[ExecutionRecord]) -> list[str]:
+    """Queries of consecutive empty successful searches at the END of history."""
+    queries: list[str] = []
+    for record in reversed(records):
+        if record.tool_name == "read_file" and record.success:
+            break
+        if record.tool_name != "search_text" or not record.success:
+            continue
+        if isinstance(record.result, list) and len(record.result) == 0:
+            queries.append(str(record.arguments.get("query", "")))
+        else:
+            break
+    queries.reverse()
+    return queries
+
+
+def no_progress_nudge(
+    records: Sequence[ExecutionRecord], *, threshold: int = 3
+) -> str | None:
+    queries = trailing_empty_searches(records)
+    if len(queries) < threshold:
+        return None
+    shown = ", ".join(f'"{_clip(q, 30)}"' for q in queries[-threshold:])
+    return (
+        "System note (not from the user). Your last "
+        f"{len(queries)} searches returned no matches ({shown}). "
+        "If the repository does not contain what the task asks about, "
+        "say so clearly in your final answer instead of searching further."
+    )
+```
+
+---
+
+### `app/agent/plan.py` <a id="appagentplanpy"></a>
+
+```python
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class StepStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+@dataclass
+class PlanStep:
+    id: int
+    description: str
+    status: StepStatus = StepStatus.PENDING
+
+
+@dataclass
+class Plan:
+    steps: list[PlanStep] = field(default_factory=list)
+
+    @classmethod
+    def from_descriptions(cls, descriptions: list[str], *, max_steps: int = 8) -> "Plan":
+        cleaned = [d.strip() for d in descriptions if d and d.strip()]
+        return cls(
+            steps=[
+                PlanStep(id=i, description=d)
+                for i, d in enumerate(cleaned[:max_steps], start=1)
+            ]
+        )
+
+    def __len__(self) -> int:
+        return len(self.steps)
+
+    def render(self) -> str:
+        return "\n".join(f"{s.id}. {s.description}" for s in self.steps)
+```
+
+---
+
+### `app/agent/plan_parsing.py` <a id="appagentplanparsingpy"></a>
+
+```python
+import re
+
+_STEP = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(.+?)\s*$")
+
+
+def parse_numbered_steps(text: str) -> list[str]:
+    steps: list[str] = []
+    for line in text.splitlines():
+        match = _STEP.match(line)
+        if match:
+            steps.append(match.group(1))
+    return steps
+```
+
+---
+
+### `app/agent/planner.py` <a id="appagentplannerpy"></a>
+
+```python
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from app.llm import LLMClient, LLMResponse
+from app.llm.types import user_message
+from app.tools.schema_utils import strict_json_schema
+
+from .plan import Plan
+from .prompts import PLANNER_V1
+
+
+class PlanSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    steps: list[str] = Field(
+        description="Ordered steps; each is one short sentence."
+    )
+
+
+@dataclass(frozen=True)
+class PlanOutcome:
+    response: LLMResponse
+    plan: Plan | None
+    failure: str | None = None
+
+
+class Planner:
+    def __init__(self, client: LLMClient, *, max_steps: int = 6) -> None:
+        self._client = client
+        self._max_steps = max_steps
+        self._schema = strict_json_schema(PlanSpec)
+
+    def make(
+        self, task: str, should_abort: Callable[[], bool] | None = None
+    ) -> PlanOutcome:
+        response = self._client.complete(
+            messages=[user_message(f"{PLANNER_V1.text}\n\nTask: {task}")],
+            tools=[],
+            should_abort=should_abort,
+            output_schema=self._schema,
+        )
+        try:
+            spec = PlanSpec.model_validate_json(response.text)
+        except ValidationError as exc:
+            return PlanOutcome(
+                response, None, f"invalid plan JSON: {exc.error_count()} error(s)"
+            )
+
+        plan = Plan.from_descriptions(spec.steps, max_steps=self._max_steps)
+        if len(plan) == 0:
+            return PlanOutcome(response, None, "plan has no steps")
+        return PlanOutcome(response, plan)
+```
+
+---
+
+### `app/agent/prompts.py` <a id="appagentpromptspy"></a>
+
+```python
+import hashlib
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Prompt:
+    name: str
+    text: str
+
+    @property
+    def sha(self) -> str:
+        return hashlib.sha256(self.text.encode("utf-8")).hexdigest()[:8]
+
+    @property
+    def label(self) -> str:
+        return f"{self.name}@{self.sha}"
+
+
+_BASE = (
+    "You are a software engineering agent. "
+    "You must ONLY call the tools explicitly provided: list_files, read_file, search_text. "
+    "Never use any namespace prefixes or tools not defined. "
+    "Only use workspace-relative paths. "
+    "Do not invent file contents. If something does not exist, say so."
+)
+
+_GROUNDING = (
+    " Never state facts about the repository from general knowledge. "
+    "Every claim in your answer must come from a tool result you obtained "
+    "in this run. If you have not read the relevant file yet, read it "
+    "before answering."
+)
+
+BASELINE = Prompt("baseline", _BASE)
+GROUNDED_V1 = Prompt("grounded-v1", _BASE + _GROUNDING)
+
+PLANNER_V1 = Prompt(
+    "planner-v1",
+    "Write a short plan for answering the task below. The agent that will "
+    "execute it can only use these tools, all on the repository: list_files, "
+    "read_file, search_text. Write at most 6 steps, each one short sentence "
+    "saying what to look for or read. Do not answer the task itself.",
+)
+
+PROMPTS: dict[str, Prompt] = {p.name: p for p in (BASELINE, GROUNDED_V1)}
+
+
+def get_prompt(name: str) -> Prompt:
+    try:
+        return PROMPTS[name]
+    except KeyError:
+        raise KeyError(
+            f"unknown prompt '{name}'; available: {sorted(PROMPTS)}"
+        ) from None
 ```
 
 ---
@@ -786,6 +1306,7 @@ from app.llm import AttemptRecord
 
 from .cost import UsageTracker
 from .history import ExecutionHistory
+from .plan import Plan
 
 
 class AgentStatus(str, Enum):
@@ -796,6 +1317,12 @@ class AgentStatus(str, Enum):
     LOOP_DETECTED = "loop_detected"
     TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
     LLM_FAILED = "llm_failed"
+
+
+@dataclass(frozen=True)
+class Thought:
+    iteration: int
+    text: str
 
 
 @dataclass
@@ -809,6 +1336,11 @@ class AgentState:
     usage: UsageTracker = field(default_factory=UsageTracker)
     llm_attempts: list[AttemptRecord] = field(default_factory=list)
     run_id: str | None = None
+    thoughts: list[Thought] = field(default_factory=list)
+    plan: Plan | None = None
+    empty_answer_retries: int = 0
+    last_nudged_failures: int = 0
+    last_nudged_empty: int = 0
 
     @property
     def is_finished(self) -> bool:
@@ -832,8 +1364,6 @@ from typing import Any, Protocol, TextIO
 
 @dataclass(frozen=True)
 class TraceEvent:
-    """One immutable, JSON-serializable trace record."""
-
     run_id: str
     seq: int
     ts: str
@@ -855,8 +1385,6 @@ class TraceSink(Protocol):
 
 
 class InMemorySink:
-    """Collects events in a list. For tests and ad-hoc inspection."""
-
     def __init__(self) -> None:
         self.events: list[TraceEvent] = []
 
@@ -868,9 +1396,6 @@ class InMemorySink:
 
 
 class JsonlFileSink:
-    """Appends one JSON object per line; flushes every event so a crash
-    keeps everything written so far."""
-
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -886,12 +1411,6 @@ def _utc_now_iso() -> str:
 
 
 class TraceRecorder:
-    """Per-run emitter. Owns run_id and the sequence counter.
-
-    A sink failure must never break the run: observability is not
-    business logic. Failures go to stderr once per event.
-    """
-
     def __init__(
         self,
         sink: TraceSink,
@@ -920,5 +1439,3 @@ class TraceRecorder:
         except Exception as exc:
             print(f"trace sink failed: {exc!r}", file=self._err)
 ```
-
----

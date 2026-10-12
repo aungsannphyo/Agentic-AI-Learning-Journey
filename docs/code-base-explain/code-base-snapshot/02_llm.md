@@ -2,7 +2,7 @@
 
 LLM client protocols, OpenAI/Groq client adapter, stateless resilient client, retry policies, error classifier, and provider-neutral message types.
 
-**Files count**: 10 files | **Active status**: 151 tests passed, ruff/mypy clean
+**Files count**: 11 files | **Active status**: 278 passed, 3 xfailed, ruff/mypy clean
 
 ## ဖိုင်များ မာတိကာ (Table of Contents)
 
@@ -13,6 +13,7 @@ LLM client protocols, OpenAI/Groq client adapter, stateless resilient client, re
 - [`app/llm/llm_errors.py`](#appllmllmerrorspy)
 - [`app/llm/openai_client.py`](#appllmopenaiclientpy)
 - [`app/llm/openai_tools.py`](#appllmopenaitoolspy)
+- [`app/llm/reasoning.py`](#appllmreasoningpy)
 - [`app/llm/resilient_client.py`](#appllmresilientclientpy)
 - [`app/llm/retry.py`](#appllmretrypy)
 - [`app/llm/types.py`](#appllmtypespy)
@@ -422,6 +423,38 @@ def to_openai_tool(tool: Tool) -> dict[str, Any]:
 
 ---
 
+### `app/llm/reasoning.py` <a id="appllmreasoningpy"></a>
+
+```python
+"""Extract visible reasoning text from provider output items.
+
+Provider-specific on purpose: this is the only place that knows the
+Responses-API 'reasoning' item shape. Output is untrusted, so every
+access is defensive and the function never raises.
+"""
+
+from collections.abc import Iterable
+from typing import Any
+
+
+def extract_reasoning(items: Iterable[dict[str, Any]]) -> str:
+    parts: list[str] = []
+    for item in items:
+        if item.get("type") != "reasoning":
+            continue
+        for key in ("content", "summary"):
+            blocks = item.get(key)
+            if not isinstance(blocks, list):
+                continue
+            for block in blocks:
+                text = block.get("text") if isinstance(block, dict) else None
+                if isinstance(text, str) and text.strip():
+                    parts.append(text.strip())
+    return "\n".join(parts)
+```
+
+---
+
 ### `app/llm/resilient_client.py` <a id="appllmresilientclientpy"></a>
 
 ```python
@@ -696,6 +729,7 @@ class LLMResponse:
     usage: Usage | None
     assistant_items: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     attempts: tuple[AttemptRecord, ...] = field(default_factory=tuple)
+    reasoning: str = ""
 
 
 # --- provider-neutral conversation messages -------------------------------

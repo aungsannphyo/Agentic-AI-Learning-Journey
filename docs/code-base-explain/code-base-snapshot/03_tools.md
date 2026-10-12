@@ -2,7 +2,7 @@
 
 Tool ABC, single source of truth args_model, strict schema derivation, Pydantic validation, workspace sandbox, and sandboxed file/search tools.
 
-**Files count**: 14 files | **Active status**: 151 tests passed, ruff/mypy clean
+**Files count**: 14 files | **Active status**: 278 passed, 3 xfailed, ruff/mypy clean
 
 ## ဖိုင်များ မာတိကာ (Table of Contents)
 

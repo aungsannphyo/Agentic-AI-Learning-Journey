@@ -2,7 +2,7 @@
 
 Centralized test fixtures, test doubles (FakeClock, FakeSDK, ScriptedClient), and builders for deterministic tests without network or sleep.
 
-**Files count**: 1 files | **Active status**: 151 tests passed, ruff/mypy clean
+**Files count**: 1 files | **Active status**: 278 passed, 3 xfailed, ruff/mypy clean
 
 ## ဖိုင်များ မာတိကာ (Table of Contents)
 
