@@ -34,6 +34,7 @@ class IterationRow:
     retries: int = 0
     failed: bool = False
     tools: list[ToolRow] = field(default_factory=list)
+    thought: str | None = None
 
 
 @dataclass
@@ -51,6 +52,7 @@ class RunSummary:
     retries: int
     total_tokens: int | None
     cost_usd: float | None
+    plan: list[str] = field(default_factory=list)
 
 
 def load_events(path: Path) -> list[Event]:
@@ -121,6 +123,7 @@ def summarize(events: Sequence[Event]) -> RunSummary:
     by_iteration: dict[int, IterationRow] = {}
     rows: list[IterationRow] = []
     guards: list[str] = []
+    plan_steps: list[str] = []
     prompt = ""
     finished: Event | None = None
 
@@ -143,6 +146,7 @@ def summarize(events: Sequence[Event]) -> RunSummary:
             row.output_tokens = event.get("output_tokens")
             row.retries = _retries(event)
             row.failed = bool(event.get("failed", False))
+            row.thought = event.get("thought")
         elif kind == "tool_call":
             row_for(int(event.get("iteration", 0))).tools.append(
                 ToolRow(
@@ -152,6 +156,10 @@ def summarize(events: Sequence[Event]) -> RunSummary:
                     error=event.get("error"),
                 )
             )
+        elif kind == "plan_created":
+            plan_steps = [str(s) for s in event.get("steps", [])]
+        elif kind == "plan_failed":
+            guards.append(f"plan_failed: {event.get('reason')}")
         elif kind == "guard_triggered":
             guards.append(f"{event.get('guard')}: {event.get('detail')}")
         elif kind == "run_finished":
@@ -171,6 +179,7 @@ def summarize(events: Sequence[Event]) -> RunSummary:
         retries=sum(r.retries for r in rows),
         total_tokens=finished.get("total_tokens") if finished else None,
         cost_usd=finished.get("cost_usd") if finished else None,
+        plan=plan_steps,
     )
 
 
@@ -186,9 +195,13 @@ def render(summary: RunSummary) -> str:
     lines = [
         f"run {summary.run_id}  status={summary.status}  iterations={len(summary.rows)}",
         f"prompt: {prompt}",
+    ]
+    for i, step in enumerate(summary.plan, start=1):
+        lines.append(f"plan {i}. {step[:100]}")
+    lines.extend([
         "",
         f"{'iter':>4} {'llm_ms':>9} {'in_tok':>7} {'out_tok':>8} {'retries':>8}  tools",
-    ]
+    ])
     for row in summary.rows:
         tools = ", ".join(
             f"{t.name}{'' if t.ok else ' FAIL'} {t.ms:.1f}ms" for t in row.tools
@@ -199,6 +212,11 @@ def render(summary: RunSummary) -> str:
             f"{_num(row.input_tokens):>7} {_num(row.output_tokens):>8} "
             f"{row.retries:>8}  {tools}{flag}"
         )
+        if row.thought:
+            one_line = row.thought.replace("\n", " ")
+            if len(one_line) > 100:
+                one_line = one_line[:97] + "..."
+            lines.append(f"{'':>4} thought: {one_line}")
 
     lines.append("")
     if summary.wall_ms is not None:

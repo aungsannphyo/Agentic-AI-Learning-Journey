@@ -4,6 +4,7 @@ from typing import Any
 
 from app.tools import parse_tool_call
 
+from .reasoning import extract_reasoning
 from .types import LLMResponse, extract_usage
 
 
@@ -39,6 +40,7 @@ class FakeLLMClient:
             list(response_sequence) if response_sequence else []
         )
         self.calls: list[dict[str, Any]] = []
+        self.output_schemas: list[dict[str, Any] | None] = []
 
     def complete(
         self,
@@ -46,7 +48,9 @@ class FakeLLMClient:
         messages: list[dict[str, Any]],
         tools: Sequence[Any],
         should_abort: Callable[[], bool] | None = None,
+        output_schema: dict[str, Any] | None = None,
     ) -> LLMResponse:
+        self.output_schemas.append(output_schema)
         self.calls.append(
             {
                 "method": "complete",
@@ -59,18 +63,24 @@ class FakeLLMClient:
             if self._response_sequence
             else FakeResponse(output_text=self.response)
         )
+
+        def _get(item: Any, key: str) -> Any:
+            return item.get(key) if isinstance(item, dict) else getattr(item, key, None)
+
         tool_calls = tuple(
             parse_tool_call(
-                call_id=item.call_id,
-                name=item.name,
-                raw_arguments=item.arguments,
+                call_id=_get(item, "call_id"),
+                name=_get(item, "name"),
+                raw_arguments=_get(item, "arguments"),
             )
             for item in fake.output
-            if item.type == "function_call"
+            if _get(item, "type") == "function_call"
         )
+        items = tuple(_item_to_dict(i) for i in fake.output)
         return LLMResponse(
             text=fake.output_text,
             tool_calls=tool_calls,
             usage=extract_usage(fake),
-            assistant_items=tuple(_item_to_dict(i) for i in fake.output),
+            assistant_items=items,
+            reasoning=extract_reasoning(items),
         )

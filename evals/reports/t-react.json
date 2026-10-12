@@ -1,0 +1,133 @@
+{
+  "version": "t-react",
+  "eval_version": 2,
+  "agent_label": "react-v1@27bfd899",
+  "runs": 6,
+  "overall_pass_rate": 1.0,
+  "total_tokens": 30584,
+  "total_cost_usd": 0.006987,
+  "by_category": {
+    "explain": 1.0,
+    "find_file": 1.0
+  },
+  "tasks": [
+    {
+      "task_id": "find-discount-file",
+      "category": "find_file",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 3504.0,
+      "mean_wall_s": 4.029333333333334,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 6690.666666666667,
+      "mean_wall_s": 7.892666666666667,
+      "statuses": {
+        "completed": 3
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "find-discount-file",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in **src/pricing.py**.",
+      "iterations": 4,
+      "total_tokens": 3630,
+      "cost_usd": 0.0007,
+      "wall_s": 3.478,
+      "retries": 0,
+      "run_id": "04b56d2c28514bf1905ae188f850cae2"
+    },
+    {
+      "task_id": "find-discount-file",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in **src/pricing.py**.",
+      "iterations": 4,
+      "total_tokens": 3439,
+      "cost_usd": 0.000672,
+      "wall_s": 3.378,
+      "retries": 0,
+      "run_id": "57ac06710c3444f3a3b3baa978ed00c0"
+    },
+    {
+      "task_id": "find-discount-file",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The discount calculation is implemented in **src/pricing.py**.",
+      "iterations": 4,
+      "total_tokens": 3443,
+      "cost_usd": 0.000674,
+      "wall_s": 5.232,
+      "retries": 0,
+      "run_id": "1dceedd0243c41efb2bd30f332795d8d"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed (step\u2011by\u2011step)**  \n\n1. **Create an `Order` object**  \n   ```python\n   order = Order(inventory)          # inventory is an Inventory instance\n   ```  \n   The constructor stores the inventory reference and starts with an empty list of line items (`self._lines`).\n\n2. **Add line items** (`order.add_line(sku, quantity, unit_price)`)  \n   * The method first checks that the total quantity of all items in the order does not exceed the limit defined in `config.MAX_ITEMS_PER_ORDER` (20).  \n   * It then tells the inventory to remove the requested quantity of the SKU (`se",
+      "iterations": 7,
+      "total_tokens": 7119,
+      "cost_usd": 0.001701,
+      "wall_s": 8.852,
+      "retries": 0,
+      "run_id": "9176072fadc643d68e67b33521b72c00"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed \u2013 step\u2011by\u2011step**\n\n1. **Create an `Order` object**  \n   ```python\n   order = Order(inventory)          # inventory is an instance of Inventory\n   ```\n   The constructor stores the inventory reference and starts with an empty list of line items (`self._lines`).\n\n2. **Add line items** (`order.add_line(sku, quantity, unit_price)`)  \n   * The method first checks that the total quantity of all items does not exceed the limit defined in `src/config.py` (`MAX_ITEMS_PER_ORDER = 20`).  \n   * It then tells the `Inventory` to remove the requested quantity of the SKU (`sel",
+      "iterations": 5,
+      "total_tokens": 5718,
+      "cost_usd": 0.001469,
+      "wall_s": 6.609,
+      "retries": 0,
+      "run_id": "b54d3b67c8164bd0a731de3a4c710b13"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed (step\u2011by\u2011step)**  \n\n1. **Create an `Order` object**  \n   ```python\n   order = Order(inventory)          # inventory is an instance of Inventory\n   ```\n   The constructor stores the inventory reference and starts with an empty list of line items (`self._lines`).\n\n2. **Add line items** \u2013 `order.add_line(sku, quantity, unit_price)`  \n   * **Validate the order size** \u2013 The method first checks that the total quantity of all items (existing\u202f+\u202fnew) does not exceed `MAX_ITEMS_PER_ORDER` (20, defined in `src/config.py`). If it would, a `ValueError` is raised.  \n   * **",
+      "iterations": 7,
+      "total_tokens": 7235,
+      "cost_usd": 0.001771,
+      "wall_s": 8.217,
+      "retries": 0,
+      "run_id": "ee41f9b0efe14d52a731ad0bf3ea48a5"
+    }
+  ]
+}

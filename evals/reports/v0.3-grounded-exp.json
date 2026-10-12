@@ -1,0 +1,104 @@
+{
+  "version": "v0.3-grounded-exp",
+  "eval_version": 2,
+  "agent_label": "grounded-v1@284f3dcd",
+  "runs": 5,
+  "overall_pass_rate": 1.0,
+  "total_tokens": 27709,
+  "total_cost_usd": 0.00701,
+  "by_category": {
+    "explain": 1.0
+  },
+  "tasks": [
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 5,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 5541.8,
+      "mean_wall_s": 7.8462000000000005,
+      "statuses": {
+        "completed": 5
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed (step\u2011by\u2011step)**  \n\nThe calculation lives in `src/orders.py` and uses helper functions from `src/pricing.py`. Below is the exact flow, with the relevant code excerpts shown for each step.\n\n| Step | What happens | Code reference |\n|------|--------------|----------------|\n| **1. Build the order lines** | Each call to `Order.add_line(sku, quantity, unit_price)` stores a tuple `(sku, quantity, unit_price)` in `self._lines`. It also checks the global limit `MAX_ITEMS_PER_ORDER` (from `src/config.py`) and removes the items from inventory. | ```python\\n    def add_li",
+      "iterations": 6,
+      "total_tokens": 6299,
+      "cost_usd": 0.001637,
+      "wall_s": 11.391,
+      "retries": 0,
+      "run_id": "f82579203c574ef49719727f97d43d94"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**Step\u2011by\u2011step computation of an order\u2019s total**\n\n1. **Collect the line items**  \n   An `Order` object stores each line as a tuple `(sku, quantity, unit_price)` in the private list `_lines`.  \n   ```python\n   self._lines: list[tuple[str, int, float]] = []\n   ```\n\n2. **Calculate the *subtotal***  \n   The `subtotal()` method adds up the price of every line (quantity\u202f\u00d7\u202funit\u2011price) and rounds the result to two decimals:  \n   ```python\n   return round(sum(q * p for _, q, p in self._lines), 2)\n   ```\n   *Result*: the raw amount before any discount, tax, or shipping.\n\n3. **Apply a discount (if any)**",
+      "iterations": 5,
+      "total_tokens": 5351,
+      "cost_usd": 0.001338,
+      "wall_s": 6.77,
+      "retries": 0,
+      "run_id": "a2d591ac1cdd478d90bd716dde675b03"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the total amount of an `Order` is calculated**\n\nThe calculation is performed by the `Order` class in **`src/orders.py`** together with the helper functions defined in **`src/pricing.py`** and the constants in **`src/config.py`**.  \nBelow is a step\u2011by\u2011step walk\u2011through of the logic that the code follows when you call `Order.total()`.\n\n---\n\n### 1. Build the order lines  \n\n```python\ndef add_line(self, sku: str, quantity: int, unit_price: float) -> None:\n    # \u2026 (validation omitted for brevity)\n    self._inventory.remove(sku, quantity)\n    self._lines.append((sku, quantity, unit_price))\n```\n",
+      "iterations": 5,
+      "total_tokens": 5576,
+      "cost_usd": 0.001473,
+      "wall_s": 7.435,
+      "retries": 0,
+      "run_id": "d6c6b2cc20f04d39b7f910fecc2bb6b3"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 4,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed (step\u2011by\u2011step)**  \n\n1. **Collect the order lines**  \n   *Each line* added to an `Order` instance stores a tuple `(sku, quantity, unit_price)` in the private list `self._lines` (see `Order.add_line` in **src/orders.py**).  \n\n2. **Calculate the subtotal**  \n   * The `subtotal()` method iterates over all stored lines and multiplies `quantity * unit_price` for each line.  \n   * It sums those products and rounds the result to two decimal places:  \n\n   ```python\n   round(sum(q * p for _, q, p in self._lines), 2)\n   ```  \n\n   (source: `Order.subtotal` in **src/orders",
+      "iterations": 5,
+      "total_tokens": 5272,
+      "cost_usd": 0.001291,
+      "wall_s": 7.293,
+      "retries": 0,
+      "run_id": "e12cb40934514f41a9f3856ff06606c6"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 5,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is calculated (step\u2011by\u2011step)**  \n\nThe calculation lives in `src/orders.py` and uses helper functions from `src/pricing.py`.\n\n| Step | Code (file) | What happens |\n|------|--------------|--------------|\n| 1\ufe0f\u20e3 **Collect line items** | `self._lines: list[tuple[str, int, float]] = []` (constructor) | Each call to `add_line(sku, quantity, unit_price)` stores a tuple **(sku, quantity, unit_price)** in this list (after checking the max\u2011items limit and removing stock). |\n| 2\ufe0f\u20e3 **Compute the *subtotal*** | `def subtotal(self) -> float: return round(sum(q * p for _, q, p in self._l",
+      "iterations": 5,
+      "total_tokens": 5211,
+      "cost_usd": 0.001271,
+      "wall_s": 6.342,
+      "retries": 0,
+      "run_id": "05fcd0f280fa4341994710afe8b2bd5c"
+    }
+  ]
+}

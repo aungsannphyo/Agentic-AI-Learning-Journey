@@ -41,13 +41,17 @@ class ResilientClient:
         messages: list[dict[str, Any]],
         tools: Sequence[Tool],
         should_abort: Callable[[], bool] | None = None,
+        output_schema: dict[str, Any] | None = None,
     ) -> LLMResponse:
+        extra = {"output_schema": output_schema} if output_schema is not None else {}
         attempts: list[AttemptRecord] = []
         attempt = 1
         while True:
             started = time.perf_counter()
             try:
-                response = self._inner.complete(messages=messages, tools=tools)
+                response = self._inner.complete(
+                    messages=messages, tools=tools, **extra
+                )
                 return replace(response, attempts=tuple(attempts))
             except Exception as exc:
                 latency_ms = (time.perf_counter() - started) * 1000

@@ -83,6 +83,11 @@ def _build_agent(
     max_tokens: int,
     wall_seconds: float,
     trace: TraceSink | None,
+    use_plan: bool = False,
+    ledger_every: int | None = None,
+    failure_nudge_after: int | None = None,
+    retry_empty_answer: bool = False,
+    no_progress_after: int | None = None,
 ) -> AgentLoop:
     ws = Workspace(workspace)
     registry = ToolRegistry()
@@ -98,6 +103,11 @@ def _build_agent(
         token_budget=TokenBudget(max_total_tokens=max_tokens),
         pricing=pricing,
         trace=trace,
+        use_plan=use_plan,
+        ledger_every=ledger_every,
+        failure_nudge_after=failure_nudge_after,
+        retry_empty_answer=retry_empty_answer,
+        no_progress_after=no_progress_after,
     )
 
 
@@ -111,6 +121,11 @@ def run_task_once(
     max_tokens: int = 40_000,
     wall_seconds: float = 180.0,
     trace: TraceSink | None = None,
+    use_plan: bool = False,
+    ledger_every: int | None = None,
+    failure_nudge_after: int | None = None,
+    retry_empty_answer: bool = False,
+    no_progress_after: int | None = None,
 ) -> RunRecord:
     with tempfile.TemporaryDirectory(prefix="eval_ws_") as tmp:
         workspace = Path(tmp) / "ws"
@@ -120,6 +135,10 @@ def run_task_once(
         agent = _build_agent(
             client_factory(), workspace, task, pricing=pricing,
             max_tokens=max_tokens, wall_seconds=wall_seconds, trace=trace,
+            use_plan=use_plan, ledger_every=ledger_every,
+            failure_nudge_after=failure_nudge_after,
+            retry_empty_answer=retry_empty_answer,
+            no_progress_after=no_progress_after,
         )
         started = time.perf_counter()
         state = agent.run(task.prompt)
@@ -135,7 +154,7 @@ def run_task_once(
         passed=graded.passed,
         score=graded.score,
         failed_checks=[c.name for c in graded.checks if not c.passed],
-        answer=(state.final_response or "")[:600],
+        answer=state.final_response or "",
         iterations=state.iteration,
         total_tokens=report["total_tokens"],
         cost_usd=report["cost_usd"],
@@ -165,6 +184,11 @@ def run_suite(
     pricing: ModelPricing | None = None,
     trace: TraceSink | None = None,
     on_record: Callable[[RunRecord], None] | None = None,
+    use_plan: bool = False,
+    ledger_every: int | None = None,
+    failure_nudge_after: int | None = None,
+    retry_empty_answer: bool = False,
+    no_progress_after: int | None = None,
 ) -> list[RunRecord]:
     fixture = root / spec.fixture
     tasks = [t for t in spec.enabled_tasks() if only is None or t.id in only]
@@ -176,7 +200,11 @@ def run_suite(
         for repeat in range(1, repeats + 1):
             record = run_task_once(
                 task, repeat, fixture, client_factory,
-                pricing=pricing, trace=trace,
+                pricing=pricing, trace=trace, use_plan=use_plan,
+                ledger_every=ledger_every,
+                failure_nudge_after=failure_nudge_after,
+                retry_empty_answer=retry_empty_answer,
+                no_progress_after=no_progress_after,
             )
             records.append(record)
             if on_record is not None:

@@ -220,7 +220,7 @@ def test_report_carries_eval_version_and_label() -> None:
         sleep=lambda _s: None,
     )
     report = build_report("t", SPEC, records, agent_label="prompt-a")
-    assert report["eval_version"] == 2
+    assert report["eval_version"] == 4
     assert report["agent_label"] == "prompt-a"
 
 

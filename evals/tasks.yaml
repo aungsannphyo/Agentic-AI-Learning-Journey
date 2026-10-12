@@ -110,6 +110,33 @@ tasks:
     must_read: []
     max_iterations: 8
 
+  - id: pos-order-limit-enforced
+    category: positive_control
+    prompt: "Which file stops someone from adding more items than allowed, and what error does it raise?"
+    expect:
+      kind: answer_contains_all
+      values: ["src/orders.py", "ValueError"]
+    must_read: ["src/orders.py"]
+    max_iterations: 8
+
+  - id: pos-discount-range
+    category: positive_control
+    prompt: "What range of discount percentages is accepted, and in which file is that checked?"
+    expect:
+      kind: answer_contains_all
+      values: ["100", "src/pricing.py"]
+    must_read: ["src/pricing.py"]
+    max_iterations: 8
+
+  - id: pos-stock-shortage
+    category: positive_control
+    prompt: "What exception signals that a requested quantity is not available, and where is it defined?"
+    expect:
+      kind: answer_contains_all
+      values: ["OutOfStockError", "src/inventory.py"]
+    must_read: ["src/inventory.py"]
+    max_iterations: 8
+
   - id: edit-add-currency-symbol
     category: edit
     enabled: false

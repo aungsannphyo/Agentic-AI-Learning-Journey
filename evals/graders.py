@@ -1,3 +1,4 @@
+import functools
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,6 +10,19 @@ REFUSAL_CUES = (
     "without", "doesn't", "does not", "isn't", "nothing", "never",
 )
 PATH_LIKE = re.compile(r"[A-Za-z0-9_./-]+\.py\b")
+POINTER_VERBS = re.compile(
+    r"\b(?:see|check|try|refer\s+to|look\s+at)\s+(?:the\s+)?([A-Za-z0-9_./-]+(?:\s+[A-Za-z0-9_.-]+)?)",
+    re.IGNORECASE,
+)
+POINTER_STOP_WORDS = {
+    "if", "whether", "that", "this", "it", "again", "out", "all",
+    "each", "every", "any", "other", "another", "more", "further",
+    "details", "here", "above", "below", "there", "to", "and",
+}
+POINTER_ENTITY_SUFFIXES = {
+    "module", "service", "helper", "client", "file", "handler",
+    "class", "function", "package", "component",
+}
 
 
 @dataclass(frozen=True)
@@ -71,19 +85,82 @@ def _answer_check(task: Task, result: RunResult) -> list[Check]:
     return checks
 
 
+def _is_real_path(fixture_dir: Path, path_str: str) -> bool:
+    norm = _norm(path_str)
+    if (fixture_dir / norm).is_file():
+        return True
+    if "/" not in norm and "\\" not in norm:
+        return any(p.name == norm for p in fixture_dir.rglob("*.py"))
+    return False
+
+
+@functools.lru_cache(maxsize=16)
+def _fixture_identifiers(fixture_dir: Path) -> frozenset[str]:
+    identifiers: set[str] = set()
+    for p in fixture_dir.rglob("*"):
+        if p.is_file() and "__pycache__" not in p.parts:
+            identifiers.add(p.name.lower())
+            identifiers.add(p.stem.lower())
+            try:
+                rel = p.relative_to(fixture_dir).as_posix().lower()
+                identifiers.add(rel)
+            except ValueError:
+                pass
+            if p.suffix == ".py":
+                try:
+                    text = p.read_text(encoding="utf-8")
+                    for token in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", text):
+                        identifiers.add(token.lower())
+                except OSError:
+                    pass
+    return frozenset(identifiers)
+
+
+def _is_real_entity(fixture_dir: Path, name: str) -> bool:
+    norm = _norm(name).lower()
+    if _is_real_path(fixture_dir, norm):
+        return True
+    return norm in _fixture_identifiers(fixture_dir)
+
+
+def _find_invented_pointers(fixture_dir: Path, answer: str) -> list[str]:
+    invented: list[str] = []
+    for m in POINTER_VERBS.finditer(answer):
+        raw = m.group(1).strip()
+        words = raw.split()
+        if not words:
+            continue
+        first = words[0].lower().strip(".,;:\"'`")
+        if first in POINTER_STOP_WORDS or first.endswith("ing"):
+            continue
+        if len(words) > 1 and words[-1].lower().strip(".,;:\"'`") in POINTER_ENTITY_SUFFIXES:
+            target = words[0].strip(".,;:\"'`")
+        else:
+            target = words[0].strip(".,;:\"'`")
+        if target and not _is_real_entity(fixture_dir, target):
+            invented.append(raw.strip(".,;:\"'`"))
+    return sorted(set(invented))
+
+
 def _refusal_checks(result: RunResult) -> list[Check]:
     answer = result.answer
     invented = sorted(
         {
             m for m in PATH_LIKE.findall(answer)
-            if not (result.fixture_dir / _norm(m)).is_file()
+            if not _is_real_path(result.fixture_dir, m)
         }
     )
+    invented_pointers = _find_invented_pointers(result.fixture_dir, answer)
     lowered = answer.lower()
     cue = any(c in lowered for c in REFUSAL_CUES)
     return [
         Check("refusal_cue", cue, "" if cue else "no refusal wording"),
         Check("no_invented_path", not invented, f"invented: {invented}" if invented else ""),
+        Check(
+            "no_invented_pointer",
+            not invented_pointers,
+            f"invented: {invented_pointers}" if invented_pointers else "",
+        ),
     ]
 
 

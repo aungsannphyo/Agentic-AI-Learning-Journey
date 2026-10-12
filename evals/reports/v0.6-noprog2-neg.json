@@ -1,0 +1,137 @@
+{
+  "version": "v0.6-noprog2-neg",
+  "eval_version": 4,
+  "regraded_from": 3,
+  "agent_label": "baseline@dd04b6a4+noprog2",
+  "runs": 6,
+  "overall_pass_rate": 0.8333333333333334,
+  "total_tokens": 14786,
+  "total_cost_usd": 0.002995,
+  "by_category": {
+    "negative": 0.8333333333333334
+  },
+  "tasks": [
+    {
+      "task_id": "negative-payment",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.6666666666666666,
+      "score_mean": 0.9444444444444445,
+      "flaky": true,
+      "mean_tokens": 2091.0,
+      "mean_wall_s": 3.1296666666666666,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "negative-email",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.6666666666666666,
+      "score_mean": 0.6666666666666666,
+      "flaky": true,
+      "mean_tokens": 2837.6666666666665,
+      "mean_wall_s": 3.6326666666666667,
+      "statuses": {
+        "completed": 2,
+        "max_iterations": 1
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "negative-payment",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The repository does not contain any file that handles credit\u2011card payment processing. None of the source files (e.g., `orders.py`, `pricing.py`, etc.) include code related to credit\u2011card or payment handling.",
+      "iterations": 4,
+      "total_tokens": 2468,
+      "cost_usd": 0.000517,
+      "wall_s": 4.229,
+      "retries": 0,
+      "run_id": "ddca84eebbcc4a46b9864c551059b4f2"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "I\u2019ve searched the entire repository for references to \u201ccredit card\u201d and \u201cpayment,\u201d and there are no matches. Consequently, the codebase does not contain a file that handles credit\u2011card payment processing.",
+      "iterations": 2,
+      "total_tokens": 1366,
+      "cost_usd": 0.000307,
+      "wall_s": 1.906,
+      "retries": 0,
+      "run_id": "23999ab8c6074d5289784a341623102c"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The repository does not contain any file that handles credit\u2011card payment processing. No source files or documentation reference credit\u2011card or payment functionality.",
+      "iterations": 4,
+      "total_tokens": 2439,
+      "cost_usd": 0.0005,
+      "wall_s": 3.254,
+      "retries": 0,
+      "run_id": "ab56000c6acb4a6f9521946e9fbe4a5e"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "I\u2019m unable to find any information in the repository about the SMTP server used by the shop for sending order\u2011confirmation emails. The codebase does not contain any configuration or code references that specify an SMTP host, so the answer cannot be determined from the available files.",
+      "iterations": 2,
+      "total_tokens": 1376,
+      "cost_usd": 0.000307,
+      "wall_s": 2.114,
+      "retries": 0,
+      "run_id": "02f7438ad6ba4d9ea2894aed7a078847"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 2,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5763,
+      "cost_usd": 0.001058,
+      "wall_s": 6.46,
+      "retries": 0,
+      "run_id": "562d84da56d5470493b84cdcf5a20b44"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "I\u2019m unable to find any information in the repository about the SMTP server used by the shop for sending order\u2011confirmation emails. The codebase does not contain references to an SMTP host, configuration, or related settings.",
+      "iterations": 2,
+      "total_tokens": 1374,
+      "cost_usd": 0.000306,
+      "wall_s": 2.324,
+      "retries": 0,
+      "run_id": "b9320b99d77741a2986ed0aa8cc7cca4"
+    }
+  ]
+}

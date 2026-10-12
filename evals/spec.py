@@ -4,10 +4,10 @@ from typing import Literal, Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-EVAL_VERSION = 2  # bump when graders.py or tasks.yaml change meaning
+EVAL_VERSION = 4  # bump when graders.py or tasks.yaml change meaning
 
 Category = Literal[
-    "find_file", "read_fact", "find_symbol", "explain", "negative", "edit"
+    "find_file", "read_fact", "find_symbol", "explain", "negative", "edit", "positive_control"
 ]
 ExpectKind = Literal[
     "answer_contains_all",

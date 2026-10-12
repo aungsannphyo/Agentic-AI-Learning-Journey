@@ -69,10 +69,9 @@ class AttemptRecord:
 class LLMResponse:
     """Provider-independent result of one LLM call.
 
-    assistant_items are opaque, JSON-serializable provider items
-    (message / function_call / reasoning ...) that the same provider
-    must be given back on the next call. The loop stores them but
-    never inspects them.
+    reasoning is the provider's own visible reasoning trace for this turn
+    (empty string if none). A debugging aid, never control flow, and
+    never replayed by hand: replay happens through assistant_items.
     """
 
     text: str
@@ -80,6 +79,7 @@ class LLMResponse:
     usage: Usage | None
     assistant_items: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     attempts: tuple[AttemptRecord, ...] = field(default_factory=tuple)
+    reasoning: str = ""
 
 
 # --- provider-neutral conversation messages -------------------------------

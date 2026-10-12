@@ -17,9 +17,21 @@ from .budget import BudgetTracker, RuntimeBudget
 from .clock import Clock, MonotonicClock
 from .cost import ModelPricing, TokenBudget, UsageTracker
 from .history import ExecutionRecord
+from .ledger import build_ledger
 from .loop_guard import ConsecutiveCounter, LoopGuard, call_fingerprint
-from .state import AgentState, AgentStatus
+from .nudges import (
+    EMPTY_ANSWER_NUDGE,
+    failure_nudge,
+    no_progress_nudge,
+    trailing_empty_searches,
+    trailing_failures,
+)
+from .planner import Planner
+from .state import AgentState, AgentStatus, Thought
 from .trace import TraceRecorder, TraceSink
+
+_MAX_TRACE_THOUGHT_CHARS = 500  # trace is for diagnosis, not a transcript store
+_PLAN_HEADER = "Plan (advisory; revise it if observations contradict it):"
 
 
 class AgentLoop:
@@ -55,6 +67,12 @@ class AgentLoop:
         pricing: ModelPricing | None = None,
         max_consecutive_malformed: int = 3,
         trace: TraceSink | None = None,
+        use_plan: bool = False,
+        max_plan_steps: int = 6,
+        ledger_every: int | None = None,
+        failure_nudge_after: int | None = None,
+        retry_empty_answer: bool = False,
+        no_progress_after: int | None = None,
     ) -> None:
         if (
             token_budget is not None
@@ -64,6 +82,12 @@ class AgentLoop:
             raise ValueError(
                 "token_budget.max_cost_usd requires pricing to be configured"
             )
+        if ledger_every is not None and ledger_every < 1:
+            raise ValueError("ledger_every must be >= 1")
+        if failure_nudge_after is not None and failure_nudge_after < 1:
+            raise ValueError("failure_nudge_after must be >= 1")
+        if no_progress_after is not None and no_progress_after < 1:
+            raise ValueError("no_progress_after must be >= 1")
 
         self._client = client
         self._registry = registry
@@ -76,6 +100,13 @@ class AgentLoop:
         self._pricing = pricing
         self._max_consecutive_malformed = max_consecutive_malformed
         self._trace_sink = trace
+        self._planner: Planner | None = (
+            Planner(client, max_steps=max_plan_steps) if use_plan else None
+        )
+        self._ledger_every = ledger_every
+        self._failure_nudge_after = failure_nudge_after
+        self._retry_empty_answer = retry_empty_answer
+        self._no_progress_after = no_progress_after
 
     def run(self, user_prompt: str) -> AgentState:
         state = AgentState(
@@ -109,6 +140,9 @@ class AgentLoop:
             max_iterations=self._max_iterations,
         )
 
+        if self._planner is not None:
+            self._make_plan(self._planner, state, user_prompt, should_abort, trace)
+
         while not state.is_finished:
             self._run_iteration(
                 state=state,
@@ -138,8 +172,10 @@ class AgentLoop:
         if response is None:
             return
 
+        self._record_thought(response, state)
+
         if not response.tool_calls:
-            self._handle_final_response(response, state)
+            self._handle_final_response(response, state, trace)
             return
 
         if self._token_budget_exhausted(state):
@@ -155,6 +191,9 @@ class AgentLoop:
             list(response.tool_calls), state, guard, malformed, trace
         )
         state.iteration += 1
+        self._maybe_add_ledger(state, trace)
+        self._maybe_add_failure_nudge(state, trace)
+        self._maybe_add_no_progress_nudge(state, trace)
 
     def _check_iteration_budget(
         self,
@@ -230,9 +269,20 @@ class AgentLoop:
         return response
 
     def _handle_final_response(
-        self, response: LLMResponse, state: AgentState
+        self,
+        response: LLMResponse,
+        state: AgentState,
+        trace: TraceRecorder | None = None,
     ) -> None:
         if not response.text.strip():
+            if self._retry_empty_answer and state.empty_answer_retries < 1:
+                state.empty_answer_retries += 1
+                state.conversation.append(user_message(EMPTY_ANSWER_NUDGE))
+                self._emit(
+                    trace, "empty_answer_nudged", iteration=state.iteration
+                )
+                state.iteration += 1  # counts against max_iterations
+                return
             state.status = AgentStatus.LLM_FAILED
             state.error = "Model returned an empty final answer"
             return
@@ -346,6 +396,72 @@ class AgentLoop:
             )
         )
 
+    def _maybe_add_ledger(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        every = self._ledger_every
+        if every is None or state.is_finished:
+            return
+        if state.iteration % every != 0:
+            return
+        note = build_ledger(state.history.records())
+        if note is None:
+            return
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace, "ledger_added", iteration=state.iteration, chars=len(note)
+        )
+
+    def _maybe_add_failure_nudge(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        after = self._failure_nudge_after
+        if after is None or state.is_finished:
+            return
+        records = state.history.records()
+        tail = trailing_failures(records)
+        tail_len = len(tail)
+        if tail_len == 0:
+            state.last_nudged_failures = 0
+            return
+        if tail_len <= state.last_nudged_failures:
+            return
+        note = failure_nudge(records, threshold=after)
+        if note is None:
+            return
+        state.last_nudged_failures = tail_len
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace,
+            "failure_nudged",
+            iteration=state.iteration,
+            failures=tail_len,
+        )
+
+    def _maybe_add_no_progress_nudge(
+        self, state: AgentState, trace: TraceRecorder | None
+    ) -> None:
+        after = self._no_progress_after
+        if after is None or state.is_finished:
+            return
+        streak = len(trailing_empty_searches(state.history.records()))
+        if streak == 0:
+            state.last_nudged_empty = 0
+            return
+        if streak <= state.last_nudged_empty:
+            return
+        note = no_progress_nudge(state.history.records(), threshold=after)
+        if note is None:
+            return
+        state.last_nudged_empty = streak
+        state.conversation.append(user_message(note))
+        self._emit(
+            trace,
+            "no_progress_nudged",
+            iteration=state.iteration,
+            empty_searches=streak,
+        )
+
     @staticmethod
     def _emit(trace: TraceRecorder | None, type_: str, **data: Any) -> None:
         if trace is not None:
@@ -383,6 +499,7 @@ class AgentLoop:
             input_tokens=usage.input_tokens if usage else None,
             output_tokens=usage.output_tokens if usage else None,
             tool_call_count=len(response.tool_calls),
+            thought=self._thought_for_trace(response),
             attempts=len(response.attempts) + 1,
             attempt_log=self._attempts_payload(response.attempts),
         )
@@ -395,5 +512,67 @@ class AgentLoop:
             trace, "run_finished", status=state.status.value,
             iterations=state.iteration, error=state.error,
             total_tokens=report["total_tokens"], cost_usd=report["cost_usd"],
+        )
+
+    @staticmethod
+    def _record_thought(response: LLMResponse, state: AgentState) -> None:
+        text = response.reasoning.strip()
+        if text:
+            state.thoughts.append(Thought(iteration=state.iteration, text=text))
+
+    @staticmethod
+    def _thought_for_trace(response: LLMResponse) -> str | None:
+        text = response.reasoning.strip()
+        return text[:_MAX_TRACE_THOUGHT_CHARS] if text else None
+
+    def _make_plan(
+        self,
+        planner: Planner,
+        state: AgentState,
+        user_prompt: str,
+        should_abort: Callable[[], bool] | None,
+        trace: TraceRecorder | None,
+    ) -> None:
+        started = perf_counter()
+        try:
+            outcome = planner.make(user_prompt, should_abort)
+        except (LLMCallFailed, DeadlineExceeded) as exc:
+            state.llm_attempts.extend(exc.attempt_log)
+            self._emit(
+                trace,
+                "plan_failed",
+                reason=f"{type(exc).__name__}: {str(exc)[:200]}",
+                latency_ms=(perf_counter() - started) * 1000,
+            )
+            return  # advisory: the run continues without a plan
+
+        response = outcome.response
+        state.llm_attempts.extend(response.attempts)
+        state.usage.record(response.usage)
+        latency_ms = (perf_counter() - started) * 1000
+
+        if outcome.plan is None:
+            self._emit(
+                trace,
+                "plan_failed",
+                reason=outcome.failure or "",
+                latency_ms=latency_ms,
+            )
+            return
+
+        state.plan = outcome.plan
+        state.conversation[0] = user_message(
+            f"{user_prompt}\n\n{_PLAN_HEADER}\n{outcome.plan.render()}"
+        )
+        usage = response.usage
+        reasoning = response.reasoning.strip()
+        self._emit(
+            trace,
+            "plan_created",
+            steps=[s.description for s in outcome.plan.steps],
+            latency_ms=latency_ms,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+            thought=reasoning[:_MAX_TRACE_THOUGHT_CHARS] or None,
         )
 

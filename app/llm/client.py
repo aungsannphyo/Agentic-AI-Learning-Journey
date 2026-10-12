@@ -20,5 +20,12 @@ class LLMClient(Protocol):
         messages: list[dict[str, Any]],
         tools: Sequence[Tool],
         should_abort: Callable[[], bool] | None = None,
+        output_schema: dict[str, Any] | None = None,
     ) -> LLMResponse:
+        """Provider-independent complete call.
+
+        output_schema, when given, asks the provider for JSON conforming
+        to that strict schema in LLMResponse.text.
+        """
         ...
+

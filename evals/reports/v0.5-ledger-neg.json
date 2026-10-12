@@ -1,0 +1,151 @@
+{
+  "version": "v0.5-ledger-neg",
+  "eval_version": 2,
+  "agent_label": "baseline@dd04b6a4+ledger3",
+  "runs": 6,
+  "overall_pass_rate": 0.0,
+  "total_tokens": 28248,
+  "total_cost_usd": 0.005298,
+  "by_category": {
+    "negative": 0.0
+  },
+  "tasks": [
+    {
+      "task_id": "negative-payment",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.0,
+      "flaky": false,
+      "mean_tokens": 4805.666666666667,
+      "mean_wall_s": 6.547999999999999,
+      "statuses": {
+        "max_iterations": 3
+      }
+    },
+    {
+      "task_id": "negative-email",
+      "category": "negative",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.0,
+      "flaky": false,
+      "mean_tokens": 4610.333333333333,
+      "mean_wall_s": 10.721666666666666,
+      "statuses": {
+        "llm_failed": 1,
+        "max_iterations": 2
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "negative-payment",
+      "repeat": 1,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4554,
+      "cost_usd": 0.000857,
+      "wall_s": 6.885,
+      "retries": 0,
+      "run_id": "b6e78871f4404ff2bb5b13f433ebc86e"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 2,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4834,
+      "cost_usd": 0.000937,
+      "wall_s": 6.498,
+      "retries": 0,
+      "run_id": "be194df17aec49f2ba9f2ac46eb7174c"
+    },
+    {
+      "task_id": "negative-payment",
+      "repeat": 3,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5029,
+      "cost_usd": 0.000932,
+      "wall_s": 6.261,
+      "retries": 0,
+      "run_id": "69f9881e8fd343dd81db6adcc9cf4bc2"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 1,
+      "status": "llm_failed",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 3,
+      "total_tokens": 1821,
+      "cost_usd": 0.000377,
+      "wall_s": 3.521,
+      "retries": 0,
+      "run_id": "e37651ea39c145858fabff6f1f1075b4"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 2,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 5996,
+      "cost_usd": 0.001092,
+      "wall_s": 6.899,
+      "retries": 0,
+      "run_id": "a1b3bd1d0198415dac8581a2ed5c9b63"
+    },
+    {
+      "task_id": "negative-email",
+      "repeat": 3,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 6014,
+      "cost_usd": 0.001103,
+      "wall_s": 21.745,
+      "retries": 1,
+      "run_id": "6c4fe55fa91549edae558671437ff78c"
+    }
+  ]
+}

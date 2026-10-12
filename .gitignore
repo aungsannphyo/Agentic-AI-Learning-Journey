@@ -36,3 +36,6 @@ Agentic-AI-Learning-Journey.md
 traces/
 scripts/
 
+# Invalid eval runs
+*.invalid
+

@@ -1,0 +1,74 @@
+{
+  "version": "v0.4-plan-smoke",
+  "eval_version": 2,
+  "agent_label": "baseline@dd04b6a4+planner-v1@9df6d256",
+  "runs": 3,
+  "overall_pass_rate": 1.0,
+  "total_tokens": 18081,
+  "total_cost_usd": 0.004884,
+  "by_category": {
+    "explain": 1.0
+  },
+  "tasks": [
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 6027.0,
+      "mean_wall_s": 8.441,
+      "statuses": {
+        "completed": 3
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed \u2013 step\u2011by\u2011step**\n\nThe repository\u2019s order\u2011processing logic lives in `src/orders.py` and the pricing helpers in `src/pricing.py`.  \nBelow is a detailed walk\u2011through of the calculation performed when an `Order` object\u2019s `total()` method is called.\n\n| Step | Code (relevant snippet) | What happens |\n|------|--------------------------|--------------|\n| **1. Gather line\u2011item data** | `self._lines: list[tuple[str, int, float]] = []` (created in `__init__`) | Each call to `add_line(sku, quantity, unit_price)` appends a tuple **(sku, quantity, unit_price)** to this list",
+      "iterations": 6,
+      "total_tokens": 7691,
+      "cost_usd": 0.001852,
+      "wall_s": 9.528,
+      "retries": 0,
+      "run_id": "bed786c715764141b4fa2eac8320ef18"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed \u2013 step\u2011by\u2011step**\n\nThe code that performs the calculation lives in two files:\n\n| File | Relevant parts |\n|------|----------------|\n| `src/orders.py` | `Order.subtotal()` and `Order.total()` |\n| `src/pricing.py` | `apply_discount()`, `add_tax()`, `shipping_cost()` |\n\nBelow is a walk\u2011through of the exact sequence that runs when a caller asks an `Order` object for its total.\n\n---\n\n### 1. Build the order line items  \n\n```python\norder = Order(inventory)          # creates an empty order\norder.add_line(sku, qty, unit_price)\n```\n\n* `add_line` checks the global limit (",
+      "iterations": 4,
+      "total_tokens": 5183,
+      "cost_usd": 0.001504,
+      "wall_s": 7.608,
+      "retries": 0,
+      "run_id": "4977e512aefe406695dafaa0cffc689a"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "**How the order total is computed \u2013 step\u2011by\u2011step**\n\nThe core of the calculation lives in `src/orders.py` (the `Order.total` method) and uses three helper functions from `src/pricing.py`.  \nBelow is a detailed walk\u2011through of each stage, from the raw line items up to the final amount that the customer sees.\n\n---\n\n### 1. Gather the line\u2011item data  \n\nAn `Order` instance stores its items in the private list `_lines`:\n\n```python\nself._lines: list[tuple[str, int, float]] = []   # (sku, quantity, unit_price)\n```\n\nEach call to `add_line(sku, quantity, unit_price)` appends a tuple to this list (after c",
+      "iterations": 4,
+      "total_tokens": 5207,
+      "cost_usd": 0.001528,
+      "wall_s": 8.187,
+      "retries": 0,
+      "run_id": "bc85efe255cb4143aceb4fa50046ff1e"
+    }
+  ]
+}

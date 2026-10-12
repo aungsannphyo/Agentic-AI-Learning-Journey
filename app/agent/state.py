@@ -6,6 +6,7 @@ from app.llm import AttemptRecord
 
 from .cost import UsageTracker
 from .history import ExecutionHistory
+from .plan import Plan
 
 
 class AgentStatus(str, Enum):
@@ -16,6 +17,17 @@ class AgentStatus(str, Enum):
     LOOP_DETECTED = "loop_detected"
     TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
     LLM_FAILED = "llm_failed"
+
+
+@dataclass(frozen=True)
+class Thought:
+    """Provider-reported reasoning for one LLM turn.
+
+    A debugging aid, not ground truth and never control flow.
+    """
+
+    iteration: int
+    text: str
 
 
 @dataclass
@@ -29,6 +41,11 @@ class AgentState:
     usage: UsageTracker = field(default_factory=UsageTracker)
     llm_attempts: list[AttemptRecord] = field(default_factory=list)
     run_id: str | None = None
+    thoughts: list[Thought] = field(default_factory=list)
+    plan: Plan | None = None
+    empty_answer_retries: int = 0
+    last_nudged_failures: int = 0
+    last_nudged_empty: int = 0
 
     @property
     def is_finished(self) -> bool:

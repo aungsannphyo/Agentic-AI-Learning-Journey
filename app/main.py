@@ -11,6 +11,7 @@ from app.agent import (
     ModelPricing,
     RuntimeBudget,
     TokenBudget,
+    get_prompt,
 )
 from app.llm import OpenAIClient, ResilientClient, RetryPolicy
 from app.tools import (
@@ -52,13 +53,7 @@ def main() -> None:
     )
 
     inner = OpenAIClient(
-        system_prompt=(
-            "You are a software engineering agent. "
-            "You must ONLY call the tools explicitly provided: list_files, read_file, search_text. "
-            "Never use any namespace prefixes or tools not defined (such as repo_browser). "
-            "Only use workspace-relative paths. "
-            "Do not invent file contents."
-        ),
+        system_prompt=get_prompt(os.getenv("AGENT_PROMPT", "baseline")).text,
         timeout_seconds=runtime_budget.per_call_timeout_seconds,
     )
 

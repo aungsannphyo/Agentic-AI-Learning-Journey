@@ -16,7 +16,7 @@ def spec() -> TaskFile:
 
 def test_task_file_is_valid_and_sized(spec: TaskFile) -> None:
     assert 10 <= len(spec.tasks) <= 20
-    assert len(spec.enabled_tasks()) >= 10
+    assert len(spec.enabled_tasks()) == 15
 
 
 def test_fixture_directory_exists(spec: TaskFile) -> None:
@@ -32,7 +32,30 @@ def test_every_referenced_file_exists_in_fixture(spec: TaskFile) -> None:
 
 def test_all_categories_are_covered(spec: TaskFile) -> None:
     covered = {t.category for t in spec.enabled_tasks()}
-    assert covered >= {"find_file", "read_fact", "find_symbol", "explain", "negative"}
+    assert covered >= {
+        "find_file", "read_fact", "find_symbol", "explain", "negative", "positive_control"
+    }
+
+
+def test_positive_control_ground_truth_matches_fixture(spec: TaskFile) -> None:
+    fixture = ROOT / spec.fixture
+    pos_tasks = [t for t in spec.tasks if t.category == "positive_control"]
+    assert len(pos_tasks) == 3
+    for task in pos_tasks:
+        for rel in task.must_read:
+            assert (fixture / rel).is_file(), f"{task.id}: missing must_read {rel}"
+        paths = [v for v in task.expect.values if v.startswith("src/")]
+        assert paths, f"{task.id}: missing file path in expect.values"
+        for rel in paths:
+            assert (fixture / rel).is_file(), f"{task.id}: missing {rel}"
+        # Symbols / facts (non-paths) in expect.values must be present in the must_read files
+        corpus = "".join(
+            (fixture / rel).read_text(encoding="utf-8") for rel in task.must_read
+        )
+        non_paths = [v for v in task.expect.values if not v.startswith("src/")]
+        assert non_paths, f"{task.id}: missing symbol/fact in expect.values"
+        for val in non_paths:
+            assert val in corpus, f"{task.id}: {val} not found in {task.must_read}"
 
 
 def test_read_fact_ground_truth_matches_fixture(spec: TaskFile) -> None:

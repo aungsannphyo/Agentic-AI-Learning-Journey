@@ -1,0 +1,46 @@
+{
+  "version": "dbg",
+  "eval_version": 2,
+  "agent_label": "baseline@dd04b6a4",
+  "runs": 1,
+  "overall_pass_rate": 0.0,
+  "total_tokens": 1536,
+  "total_cost_usd": 0.000774,
+  "by_category": {
+    "explain": 0.0
+  },
+  "tasks": [
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 1,
+      "pass_rate": 0.0,
+      "score_mean": 0.6666666666666666,
+      "flaky": false,
+      "mean_tokens": 1536.0,
+      "mean_wall_s": 3.681,
+      "statuses": {
+        "completed": 1
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Below is a typical step\u2011by\u2011step breakdown of how an e\u2011commerce system (or any order\u2011processing system) calculates the **order total** that a customer sees and ultimately pays.\n\n---\n\n## 1. Gather the Order\u2019s Line Items  \nEach product the customer adds to the cart becomes a **line item**. For every line item you need:\n\n| Data | Description |\n|------|-------------|\n| **Quantity** | How many units the customer wants. |\n| **Unit Price** | The base price of a single unit (often pulled from the product catalog). |\n| **Item\u2011level discounts** | Any promotions that apply to that specific product (",
+      "iterations": 0,
+      "total_tokens": 1536,
+      "cost_usd": 0.000774,
+      "wall_s": 3.681,
+      "retries": 0,
+      "run_id": "bbcd2cd121a3448da872acfb8df8ac5b"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "version": "v0.5-ledger-explain",
+  "eval_version": 2,
+  "agent_label": "baseline@dd04b6a4+ledger3",
+  "runs": 6,
+  "overall_pass_rate": 0.5,
+  "total_tokens": 20090,
+  "total_cost_usd": 0.005855,
+  "by_category": {
+    "explain": 0.5
+  },
+  "tasks": [
+    {
+      "task_id": "explain-orders",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 0.0,
+      "score_mean": 0.6666666666666666,
+      "flaky": false,
+      "mean_tokens": 1813.3333333333333,
+      "mean_wall_s": 4.501333333333333,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "explain-stock-check",
+      "category": "explain",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 4883.333333333333,
+      "mean_wall_s": 5.329666666666667,
+      "statuses": {
+        "completed": 3
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "explain-orders",
+      "repeat": 1,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Computing the total amount for an order (often called the **order total**) is a multi\u2011step process that adds up all the monetary components that make up the purchase. Below is a typical, step\u2011by\u2011step breakdown that you\u2019ll find in most e\u2011commerce or point\u2011of\u2011sale systems. The exact details can vary by business rules, tax jurisdictions, and platform, but the core concepts are the same.\n\n---\n\n## 1. Gather the Line\u2011Item Subtotals  \n\n**What it is:**  \nEach product (or service) in the cart has a *unit price* and a *quantity*.  \n\n**Formula for each line item:**  \n\n```\nLine\u2011Item Subtotal = Unit ",
+      "iterations": 0,
+      "total_tokens": 1956,
+      "cost_usd": 0.001026,
+      "wall_s": 5.323,
+      "retries": 0,
+      "run_id": "8d7aac1a255b4e85b77e5c6a3bf2c2be"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 2,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Computing an order total is a common task in e\u2011commerce and point\u2011of\u2011sale systems. Below is a typical step\u2011by\u2011step breakdown of how the total amount a customer owes is calculated.\n\n---\n\n## 1. Gather the Line Items  \n\nEach order consists of one or more **line items** (products or services).  \nFor each line item you need:\n\n| Data | Description |\n|------|-------------|\n| **Quantity** (`q`) | How many units the customer wants. |\n| **Unit price** (`p`) | The price for a single unit (often stored in the product catalog). |\n| **Discounts** (`d_line`) | Any per\u2011item discount (percentage or fixed",
+      "iterations": 0,
+      "total_tokens": 1879,
+      "cost_usd": 0.000979,
+      "wall_s": 4.409,
+      "retries": 0,
+      "run_id": "2f9fe9ff98774ccd800459387e1afc24"
+    },
+    {
+      "task_id": "explain-orders",
+      "repeat": 3,
+      "status": "completed",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "failed_checks": [
+        "must_read"
+      ],
+      "answer": "Sure! Computing the total amount for an order (often called the **order total**) typically involves a series of straightforward steps. Below is a step\u2011by\u2011step breakdown that applies to most e\u2011commerce or point\u2011of\u2011sale systems. Feel free to adapt the flow to your specific business rules (e.g., special taxes, tiered discounts, etc.).\n\n---\n\n## 1. Gather the Line\u2011Item Details  \n\nFor each product (or service) the customer has added to the cart, you need:\n\n| Data | Description |\n|------|-------------|\n| **Quantity** | How many units of the item the customer wants. |\n| **Unit Price** | The price per ",
+      "iterations": 0,
+      "total_tokens": 1605,
+      "cost_usd": 0.000815,
+      "wall_s": 3.772,
+      "retries": 0,
+      "run_id": "9c0fa620e79c49ce8e69e2b4df2458de"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When `Order.add_line` is called it first checks the order\u2011size limit, then it delegates the stock check to the inventory:\n\n```python\ndef add_line(self, sku: str, quantity: int, unit_price: float) -> None:\n    if sum(q for _, q, _ in self._lines) + quantity > MAX_ITEMS_PER_ORDER:\n        raise ValueError(\"too many items in one order\")\n    self._inventory.remove(sku, quantity)   # <-- stock check happens here\n    self._lines.append((sku, quantity, unit_price))\n```\n\n`Inventory.remove` is implemented as:\n\n```python\ndef remove(self, sku: str, quantity: int) -> None:\n    available = self._stock.get(",
+      "iterations": 4,
+      "total_tokens": 4942,
+      "cost_usd": 0.001047,
+      "wall_s": 5.432,
+      "retries": 0,
+      "run_id": "2f517542228741baacdb44d5c8469279"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When `Order.add_line` is called it first checks the overall item\u2011count limit, and then it **removes the requested quantity from the inventory**:\n\n```python\nself._inventory.remove(sku, quantity)\n```\n\nThe `Inventory.remove` implementation is:\n\n```python\ndef remove(self, sku: str, quantity: int) -> None:\n    available = self._stock.get(sku, 0)\n    if available < quantity:\n        raise OutOfStockError(f\"only {available} of {sku} left\")\n    self._stock[sku] = available - quantity\n```\n\nTherefore, if the caller tries to add a line whose `quantity` exceeds the amount currently stored for that `sku`, ",
+      "iterations": 4,
+      "total_tokens": 4852,
+      "cost_usd": 0.000993,
+      "wall_s": 5.226,
+      "retries": 0,
+      "run_id": "48281e11f3334b8887289845972d3bb1"
+    },
+    {
+      "task_id": "explain-stock-check",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "When an order line is added, `Order.add_line` first checks the overall item\u2011count limit and then calls the inventory to reserve the requested quantity:\n\n```python\nself._inventory.remove(sku, quantity)\n```\n\nThe `Inventory.remove` implementation is:\n\n```python\ndef remove(self, sku: str, quantity: int) -> None:\n    available = self._stock.get(sku, 0)\n    if available < quantity:\n        raise OutOfStockError(f\"only {available} of {sku} left\")\n    self._stock[sku] = available - quantity\n```\n\nTherefore, if the caller tries to add a line whose `quantity` exceeds the amount currently stored for that ",
+      "iterations": 4,
+      "total_tokens": 4856,
+      "cost_usd": 0.000995,
+      "wall_s": 5.331,
+      "retries": 0,
+      "run_id": "287c78c37b904c7a80aae300c10546a7"
+    }
+  ]
+}

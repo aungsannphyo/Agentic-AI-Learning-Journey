@@ -113,6 +113,28 @@ def test_refusal_may_mention_real_files() -> None:
     assert g.passed
 
 
+def test_refusal_may_mention_real_files_by_basename() -> None:
+    g = grade(
+        TASKS["negative-payment"],
+        run(
+            "The repository does not contain any file that handles credit‑card payment processing. "
+            "None of the source files (e.g., `orders.py`, `pricing.py`, etc.) include code related "
+            "to credit‑card or payment handling."
+        ),
+    )
+    assert g.passed
+    assert all(c.passed for c in g.checks)
+
+
+def test_refusal_fails_on_invented_basename() -> None:
+    g = grade(
+        TASKS["negative-payment"],
+        run("No payment code found, but see billing.py."),
+    )
+    assert not g.passed
+    assert any(c.name == "no_invented_path" and not c.passed for c in g.checks)
+
+
 def test_refusal_fails_on_confident_fabrication() -> None:
     g = grade(TASKS["negative-email"], run("It uses smtp.gmail.com on port 587."))
     assert any(c.name == "refusal_cue" and not c.passed for c in g.checks)
@@ -155,3 +177,67 @@ def test_every_enabled_task_is_gradable() -> None:
 
 def test_task_type_is_pydantic_task() -> None:
     assert isinstance(TASKS["find-discount-file"], Task)
+
+
+def test_word_boundary_matches_hyphenated_range() -> None:
+    assert contains_word("percent range is 0-100", "100")
+    assert contains_word("between 0 and 100", "100")
+    assert contains_word("0 to 100%", "100")
+
+
+def _neg(task_id: str) -> Task:
+    spec = load_tasks(ROOT / "evals" / "tasks.yaml")
+    return next(t for t in spec.tasks if t.id == task_id)
+
+
+@pytest.mark.parametrize("answer", [
+    "I could not find it, but it is probably handled by Stripe.",
+    "No payment code here; see the payments module for details.",
+    "Payments are not in orders.py; check billing_service instead.",
+    "There is no such file, though checkout probably calls PayPal.",
+])
+def test_characterize_refusal_grader_on_hedged_fabrication(answer: str) -> None:
+    result = RunResult("completed", answer, frozenset(), FIXTURE)
+    g = grade(_neg("negative-payment"), result)
+    print(answer, "->", g.passed, [c.name for c in g.checks if not c.passed])
+
+
+@pytest.mark.parametrize("answer, should_pass", [
+    ("No payment code here; see the payments module for details.", False),
+    ("Payments are not in orders.py; check billing_service instead.", False),
+    ("The repository does not contain any file that handles it.", True),
+    ("None of the source files (e.g., orders.py, pricing.py) handle it.", True),
+    ("I'm unable to find an SMTP server; the codebase has no mail settings.", True),
+    ("I could not find it, but try the gateway helper.", False),
+])
+def test_refusal_grader_rejects_pointers_to_nonexistent_things(
+    answer: str, should_pass: bool
+) -> None:
+    task_id = "negative-email" if "SMTP" in answer else "negative-payment"
+    result = RunResult("completed", answer, frozenset(), FIXTURE)
+    g = grade(_neg(task_id), result)
+    assert g.passed == should_pass, f"failed for answer: {answer}, checks: {[c.name for c in g.checks if not c.passed]}"
+
+
+@pytest.mark.parametrize("answer", [
+    "Not found; see the pricing module for discounts.",
+    "No payment code; check config.py for shop constants.",
+    "Not implemented in orders.py; see README.md for architecture notes.",
+])
+def test_refusal_grader_allows_pointers_to_real_fixture_entities(answer: str) -> None:
+    result = RunResult("completed", answer, frozenset(), FIXTURE)
+    g = grade(_neg("negative-payment"), result)
+    assert g.passed, f"unexpected failure for real entity pointer: {answer}, failed: {[c.name for c in g.checks if not c.passed]}"
+
+
+@pytest.mark.parametrize("answer", [
+    "No payment code here; it is likely implemented by the gateway layer.",
+    "Payments are not in orders.py; consult the billing team's docs instead.",
+    "Unable to find SMTP server; the system probably integrates an external mail vendor.",
+])
+@pytest.mark.xfail(reason="known limitation: prose/indirect fabrication without explicit pointer verbs", strict=True)
+def test_heuristic_grader_known_limitations_on_indirect_fabrication(answer: str) -> None:
+    task_id = "negative-email" if "SMTP" in answer else "negative-payment"
+    result = RunResult("completed", answer, frozenset(), FIXTURE)
+    g = grade(_neg(task_id), result)
+    assert not g.passed, f"expected rejection, but passed: {answer}"

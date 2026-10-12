@@ -1,0 +1,194 @@
+{
+  "version": "v0.7-pos-off",
+  "eval_version": 4,
+  "agent_label": "baseline@dd04b6a4",
+  "runs": 9,
+  "overall_pass_rate": 0.8888888888888888,
+  "total_tokens": 31625,
+  "total_cost_usd": 0.006368,
+  "by_category": {
+    "positive_control": 0.8888888888888888
+  },
+  "tasks": [
+    {
+      "task_id": "pos-order-limit-enforced",
+      "category": "positive_control",
+      "runs": 3,
+      "pass_rate": 0.6666666666666666,
+      "score_mean": 0.6666666666666666,
+      "flaky": true,
+      "mean_tokens": 4688.0,
+      "mean_wall_s": 5.691666666666666,
+      "statuses": {
+        "completed": 2,
+        "max_iterations": 1
+      }
+    },
+    {
+      "task_id": "pos-discount-range",
+      "category": "positive_control",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 2166.6666666666665,
+      "mean_wall_s": 2.4166666666666665,
+      "statuses": {
+        "completed": 3
+      }
+    },
+    {
+      "task_id": "pos-stock-shortage",
+      "category": "positive_control",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "score_mean": 1.0,
+      "flaky": false,
+      "mean_tokens": 3687.0,
+      "mean_wall_s": 4.624,
+      "statuses": {
+        "completed": 3
+      }
+    }
+  ],
+  "records": [
+    {
+      "task_id": "pos-order-limit-enforced",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The check is implemented in **`src/orders.py`**.  \nWhen the total quantity of items in an order would exceed the allowed limit, the code executes:\n\n```python\nif sum(q for _, q, _ in self._lines) + quantity > MAX_ITEMS_PER_ORDER:\n    raise ValueError(\"too many items in one order\")\n```\n\nThus, the file that prevents adding more items than allowed is **`src/orders.py`**, and it raises a **`ValueError`** with the message **\u201ctoo many items in one order.\u201d**",
+      "iterations": 5,
+      "total_tokens": 3665,
+      "cost_usd": 0.000777,
+      "wall_s": 4.458,
+      "retries": 0,
+      "run_id": "6fc0f977a2884368ab80992a8fead9e1"
+    },
+    {
+      "task_id": "pos-order-limit-enforced",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The check is performed in **`src/orders.py`** (the `Order.add_line` method).  \nWhen the total quantity of items in an order would exceed the allowed limit, the code raises a **`ValueError`** with the message:\n\n```python\nraise ValueError(\"too many items in one order\")\n```",
+      "iterations": 7,
+      "total_tokens": 5508,
+      "cost_usd": 0.001087,
+      "wall_s": 6.758,
+      "retries": 0,
+      "run_id": "e6db01675e984bf391a11f44dd4cf699"
+    },
+    {
+      "task_id": "pos-order-limit-enforced",
+      "repeat": 3,
+      "status": "max_iterations",
+      "passed": false,
+      "score": 0.0,
+      "failed_checks": [
+        "terminated",
+        "answer"
+      ],
+      "answer": "",
+      "iterations": 8,
+      "total_tokens": 4891,
+      "cost_usd": 0.00097,
+      "wall_s": 5.859,
+      "retries": 0,
+      "run_id": "ff126459ab2b4985b013a5475e1df835"
+    },
+    {
+      "task_id": "pos-discount-range",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The accepted discount percentage range is **0\u202f%\u202fthrough\u202f100\u202f% (inclusive)**.  \nThis validation is performed in the **`apply_discount`** function located in **`src/pricing.py`**, where the code checks:\n\n```python\nif not 0 <= percent <= 100:\n    raise ValueError(\"percent must be between 0 and 100\")\n```",
+      "iterations": 2,
+      "total_tokens": 2163,
+      "cost_usd": 0.000439,
+      "wall_s": 2.362,
+      "retries": 0,
+      "run_id": "ecff5ad3e0724ea28a897000dcabd0d0"
+    },
+    {
+      "task_id": "pos-discount-range",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The accepted discount percentage range is **0\u202f%\u202fthrough\u202f100\u202f% (inclusive)**.  \nThis validation is performed in the **`apply_discount`** function located in **`src/pricing.py`**, where the code checks:\n\n```python\nif not 0 <= percent <= 100:\n    raise ValueError(\"percent must be between 0 and 100\")\n```",
+      "iterations": 2,
+      "total_tokens": 2171,
+      "cost_usd": 0.000444,
+      "wall_s": 2.434,
+      "retries": 0,
+      "run_id": "2702df10c44f4f78b8051d1145cccc06"
+    },
+    {
+      "task_id": "pos-discount-range",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The accepted discount percentage range is **0\u202f%\u202fthrough\u202f100\u202f% inclusive**.  \nThis validation is performed in the **`apply_discount`** function inside **`src/pricing.py`**, where the code checks:\n\n```python\nif not 0 <= percent <= 100:\n    raise ValueError(\"percent must be between 0 and 100\")\n```",
+      "iterations": 2,
+      "total_tokens": 2166,
+      "cost_usd": 0.000441,
+      "wall_s": 2.454,
+      "retries": 0,
+      "run_id": "d6e2f6f8caaf4acbbb8df285dc27c0f5"
+    },
+    {
+      "task_id": "pos-stock-shortage",
+      "repeat": 1,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The exception that indicates a requested quantity isn\u2019t available is **`OutOfStockError`**.  \nIt is defined in the file **`src/inventory.py`** at the top of the module.",
+      "iterations": 3,
+      "total_tokens": 2655,
+      "cost_usd": 0.000529,
+      "wall_s": 2.941,
+      "retries": 0,
+      "run_id": "8f121a576c7d4afeb8f7e5955982005a"
+    },
+    {
+      "task_id": "pos-stock-shortage",
+      "repeat": 2,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The exception that signals a requested quantity is not available is **`OutOfStockError`**.  \n\nIt is defined in the file **`src/inventory.py`**:\n\n```python\nclass OutOfStockError(Exception):\n    pass\n```\n\nThis exception is raised in the `remove` method of the `Inventory` class when the requested quantity exceeds the available stock.",
+      "iterations": 7,
+      "total_tokens": 4766,
+      "cost_usd": 0.000942,
+      "wall_s": 7.377,
+      "retries": 0,
+      "run_id": "ffcb81e55fac48c8a52dfac26f05c1d2"
+    },
+    {
+      "task_id": "pos-stock-shortage",
+      "repeat": 3,
+      "status": "completed",
+      "passed": true,
+      "score": 1.0,
+      "failed_checks": [],
+      "answer": "The exception that indicates a requested quantity cannot be fulfilled is **`OutOfStockError`**.  \n\nIt is defined in the file **`src/inventory.py`**:\n\n```python\n# src/inventory.py\nclass OutOfStockError(Exception):\n    pass\n```\n\nWhen the `Inventory.remove` method detects that the available stock is less than the requested amount, it raises this exception:\n\n```python\nif available < quantity:\n    raise OutOfStockError(f\"only {available} of {sku} left\")\n```",
+      "iterations": 4,
+      "total_tokens": 3640,
+      "cost_usd": 0.000739,
+      "wall_s": 3.554,
+      "retries": 0,
+      "run_id": "a337b64ad1394ddcbaf054836b716ba5"
+    }
+  ]
+}

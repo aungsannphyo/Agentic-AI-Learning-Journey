@@ -7,6 +7,7 @@ from openai import OpenAI
 from app.tools import Tool, parse_tool_call
 
 from .openai_tools import to_openai_tool
+from .reasoning import extract_reasoning
 from .types import LLMResponse, extract_usage
 
 
@@ -84,15 +85,27 @@ class OpenAIClient:
         messages: list[dict[str, Any]],
         tools: Sequence[Tool],
         should_abort: Callable[[], bool] | None = None,
+        output_schema: dict[str, Any] | None = None,
     ) -> LLMResponse:
         del should_abort
-        response = self._client.responses.create(
-            model=self._model,
-            instructions=self._system_prompt,
-            input=self._to_openai_input(messages),
-            tools=[to_openai_tool(tool) for tool in tools],
-            temperature=self._temperature,
-        )
+        kwargs: dict[str, Any] = {
+            "model": self._model,
+            "instructions": self._system_prompt,
+            "input": self._to_openai_input(messages),
+            "temperature": self._temperature,
+        }
+        if tools:
+            kwargs["tools"] = [to_openai_tool(tool) for tool in tools]
+        if output_schema is not None:
+            kwargs["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "output",
+                    "schema": output_schema,
+                    "strict": True,
+                }
+            }
+        response = self._client.responses.create(**kwargs)
 
         tool_calls = tuple(
             parse_tool_call(
@@ -103,9 +116,12 @@ class OpenAIClient:
             for item in _function_calls(response.output)
         )
 
+        items = tuple(self._dump_item(i) for i in response.output)
         return LLMResponse(
             text=response.output_text,
             tool_calls=tool_calls,
             usage=extract_usage(response),
-            assistant_items=tuple(self._dump_item(i) for i in response.output),
+            assistant_items=items,
+            reasoning=extract_reasoning(items),
         )
+
